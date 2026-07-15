@@ -1,63 +1,213 @@
-# PROMPT — HRIS Payroll Enterprise System
+# HRIS Payroll Enterprise System
 
-Buatkan sistem **HRIS Payroll Enterprise** (multi-company, multi-branch) dengan tech stack:
-- Frontend: **React** (component-based, responsive)
-- Backend: **Node.js + Express**
-- Database: **MySQL**
-- Auth: JWT + role-based access control
+Sistem **HRIS Payroll Enterprise** (multi-company, multi-branch) dengan tech stack:
+- **Frontend**: React (component-based, responsive)
+- **Backend**: Node.js + Express
+- **Database**: MySQL
+- **Auth**: JWT + role-based access control
 
-## 1. Modul Utama
-- **Core HR**: struktur organisasi, position/job role, employee onboarding, document management, employee history
-- **Attendance**: check in/out (biometric/GPS), shift & schedule, overtime tracking, laporan (daily/monthly/exception)
-- **Leave Management**: apply → approval (manager→HR) → update balance; tipe cuti (annual, sick, personal, maternity, others); leave calendar
-- **Payroll**:
-  - Master: salary component, structure & grade, employee assignment
-  - Transaksi: attendance, overtime, leave adjustment, allowance, deduction/loan
-  - Proses: initialization → calculation → simulation → result → payslip/report/journal/bank export
-  - Approval: multi-level (Manager → HR → Finance → Director), status pending/approved/rejected/revision
-- **Compliance**: BPJS Kesehatan, BPJS Ketenagakerjaan, PPh21, Pension — kalkulasi otomatis + export laporan
-- **Employee Self Service (ESS)**: view profile/payslip, apply leave, cek attendance, update profile
-- **Asset Management**: asset master, assignment, tracking, maintenance schedule, disposal
-- **Training**: program, schedule, enrollment, evaluation, sertifikat
-- **Notification & Approval Engine**: trigger otomatis (leave request, payroll created, overtime, dll) → multi-channel (in-app, email, WA/SMS, push) + audit trail log
+## 📁 Struktur Project
 
-## 2. User Roles & Permission
-Administrator, HR Staff, Manager, Employee, Finance/Payroll, Director — dengan matrix akses: Full Access / Limited Access / View Only / No Access per modul.
+```
+/workspace
+├── backend/                    # Backend API (Node.js + Express)
+│   ├── src/
+│   │   ├── config/            # Database & configuration
+│   │   ├── controllers/       # Request handlers
+│   │   ├── middleware/        # Auth, error handling, logging
+│   │   ├── models/            # Data models (optional, using raw SQL)
+│   │   ├── routes/            # API routes
+│   │   ├── services/          # Business logic
+│   │   └── utils/             # Helper functions
+│   ├── prisma/
+│   │   └── schema.sql         # Database schema (MySQL)
+│   ├── .env.example           # Environment variables template
+│   └── package.json
+│
+├── frontend/                   # Frontend (React)
+│   ├── public/
+│   │   └── index.html
+│   └── src/
+│       ├── components/        # Reusable UI components
+│       ├── context/           # React Context (Auth, etc.)
+│       ├── hooks/             # Custom React hooks
+│       ├── pages/             # Page components
+│       │   ├── auth/          # Login, Register, Forgot Password
+│       │   ├── dashboard/     # Main dashboard
+│       │   ├── corehr/        # Core HR module
+│       │   ├── attendance/    # Attendance module
+│       │   ├── leave/         # Leave management
+│       │   ├── payroll/       # Payroll processing
+│       │   ├── compliance/    # BPJS, PPh21, Pension
+│       │   ├── ess/           # Employee Self Service
+│       │   ├── asset/         # Asset management
+│       │   ├── training/      # Training module
+│       │   └── reports/       # Reports & analytics
+│       ├── services/          # API service layer
+│       ├── utils/             # Helper functions
+│       ├── App.js             # Main app component
+│       └── index.js           # Entry point
+│   └── package.json
+│
+└── readme.md                  # This file
+```
 
-## 3. Database (ERD level tinggi)
-Entitas inti: `employee`, `attendance`, `leave`, `payroll`, `compliance`, `asset`, `training`, `user/system`.
-Contoh relasi kunci:
-- `employee_id (PK)` → organization & employee master (grade, location, document)
-- `attendance_id (FK employee_id)` → schedule, shift, overtime, holiday
-- `leave_id (FK employee_id)` → leave type, balance, approval status
-- `payroll_id (FK employee_id)` → payroll master & transaction, allowance/deduction, tax
-- `compliance` → BPJS, PPh21, pension (relasi ke payroll)
-- `asset_id (FK employee_id)` → assignment & maintenance
-- `training_id (FK employee_id)` → participant & evaluation
-- `system` → user, role, permission, audit log
+## 🚀 Fitur Utama
 
-## 4. UI/UX
-- Navigasi: Login → Dashboard → Master / Transaction / Report / Setting (tiap modul punya List, Detail, Form, Report)
-- Dashboard utama menampilkan: headcount trend, attendance summary, leave summary, payroll cost — mendukung drill-down ke detail
-- Wireframe yang dibutuhkan: Dashboard (admin/HR), Employee Profile, Attendance, Payroll Process, Reporting Dashboard (chart-based)
-- Desain bersih, modern, dashboard-style, mendukung mobile (untuk ESS)
+### 1. Modul Utama
+- ✅ **Core HR**: Struktur organisasi, position/job role, employee onboarding, document management
+- ✅ **Attendance**: Check in/out (biometric/GPS), shift & schedule, overtime tracking
+- ✅ **Leave Management**: Apply → approval workflow, leave types, balance tracking
+- ⏳ **Payroll**: Master salary, transaksi, proses, approval multi-level
+- ⏳ **Compliance**: BPJS Kesehatan, BPJS Ketenagakerjaan, PPh21, Pension
+- ⏳ **ESS**: View profile/payslip, apply leave, cek attendance
+- ⏳ **Asset Management**: Asset tracking, maintenance schedule
+- ⏳ **Training**: Program, enrollment, evaluation, sertifikat
+- ⏳ **Notification Engine**: Multi-channel notifications + audit trail
 
-## 5. API & Integrasi Eksternal
-REST API + API Gateway (auth, rate limiting, monitoring). Integrasi: biometric device, GPS/geo-location, payment/bank gateway, e-filing BPJS/PPh21, email/SMS/WA gateway.
+### 2. User Roles & Permission
+- Administrator (Full Access)
+- HR Staff (HR operations)
+- Manager (Approval rights)
+- Employee (Self-service)
+- Finance/Payroll (Payroll processing)
+- Director (Executive approvals)
 
-## 6. Deployment
-Arsitektur: Load Balancer → App Server (Node/Express, PM2) → DB Server (MySQL primary + backup) — dengan monitoring, logging, backup & recovery, firewall/HTTPS.
+### 3. Database Schema
+Schema MySQL lengkap tersedia di `backend/prisma/schema.sql` mencakup:
+- Multi-company & multi-branch support
+- Employee master data & history
+- Attendance & scheduling
+- Leave management
+- Payroll processing
+- Compliance (BPJS, PPh21)
+- Asset management
+- Training programs
+- Notification & approval workflows
+
+## 🛠️ Setup & Installation
+
+### Backend Setup
+
+```bash
+cd backend
+
+# Install dependencies
+npm install
+
+# Copy environment file
+cp .env.example .env
+
+# Edit .env dan sesuaikan konfigurasi database
+
+# Create database dan run schema
+mysql -u root -p < prisma/schema.sql
+
+# Start server (development)
+npm run dev
+
+# Start server (production)
+npm start
+```
+
+### Frontend Setup
+
+```bash
+cd frontend
+
+# Install dependencies
+npm install
+
+# Start development server
+npm start
+```
+
+Server akan berjalan di:
+- Backend API: http://localhost:3000
+- Frontend: http://localhost:3001
+
+## 🔐 Default Credentials (Demo)
+
+| Role | Username | Password |
+|------|----------|----------|
+| Administrator | admin | admin123 |
+| HR Staff | hrstaff | hr123 |
+| Manager | manager | mgr123 |
+| Employee | employee | emp123 |
+| Finance | finance | fin123 |
+| Director | director | dir123 |
+
+## 📡 API Endpoints
+
+### Authentication
+- `POST /api/auth/login` - Login user
+- `POST /api/auth/logout` - Logout user
+- `POST /api/auth/refresh-token` - Refresh JWT token
+- `GET /api/auth/profile` - Get current user profile
+- `POST /api/auth/change-password` - Change password
+
+### Employees (Placeholder)
+- `GET /api/employees` - Get all employees
+- `GET /api/employees/:id` - Get employee by ID
+- `POST /api/employees` - Create employee
+- `PUT /api/employees/:id` - Update employee
+- `DELETE /api/employees/:id` - Delete employee
+
+### Attendance (Placeholder)
+- `GET /api/attendance` - Get attendance records
+- `POST /api/attendance/check-in` - Check in
+- `POST /api/attendance/check-out` - Check out
+
+## 📊 Development Status
+
+| Module | Backend | Frontend | Status |
+|--------|---------|----------|--------|
+| Auth & RBAC | ✅ | ✅ | Complete |
+| Dashboard | ⏳ | ✅ | Frontend Ready |
+| Core HR | ⏳ | ⏳ | In Progress |
+| Attendance | ⏳ | ⏳ | In Progress |
+| Leave | ⏳ | ⏳ | In Progress |
+| Payroll | ⏳ | ⏳ | Planned |
+| Compliance | ⏳ | ⏳ | Planned |
+| ESS | ⏳ | ⏳ | Planned |
+| Asset | ⏳ | ⏳ | Planned |
+| Training | ⏳ | ⏳ | Planned |
+| Reports | ⏳ | ⏳ | Planned |
+
+## 🏗️ Arsitektur Deployment
+
+```
+Load Balancer
+    ↓
+App Server (Node.js/Express + PM2)
+    ↓
+DB Server (MySQL Primary + Replica)
+```
+
+Dengan:
+- Monitoring & Logging
+- Backup & Recovery
+- Firewall & HTTPS
+- Rate Limiting
+- CORS Protection
+
+## 📝 Next Steps
+
+1. ✅ Setup project structure (DONE)
+2. ✅ Database schema (DONE)
+3. ✅ Authentication & Authorization (DONE)
+4. ⏳ Implement Core HR module
+5. ⏳ Implement Attendance module
+6. ⏳ Implement Leave Management
+7. ⏳ Implement Payroll (master → transaksi → proses → approval)
+8. ⏳ Implement Compliance (BPJS/PPh21/Pension)
+9. ⏳ Implement ESS, Asset, Training
+10. ⏳ Implement Notification engine + Dashboard/Reporting
+
+## 📄 License
+
+Proprietary - All rights reserved
 
 ---
 
-## Instruksi untuk Qwen Coder
-Bangun secara bertahap (jangan sekaligus), urutan prioritas:
-1. Setup project (folder structure React + Express + MySQL schema dasar) + auth & role permission
-2. Modul Core HR + Attendance
-3. Modul Leave Management
-4. Modul Payroll (master → transaksi → proses → approval)
-5. Compliance (BPJS/PPh21/Pension)
-6. ESS, Asset, Training
-7. Notification engine + Dashboard/Reporting
-
-Untuk tiap tahap: buatkan schema MySQL, REST API endpoint (CRUD + business logic), dan komponen React terkait. Konfirmasi struktur folder & schema dulu sebelum lanjut ke modul berikutnya.
+**HRIS Payroll Enterprise System** © 2024

@@ -1,0 +1,40 @@
+```
+# Dependencies
+node_modules/
+backend/node_modules/
+frontend/node_modules/
+
+# Environment variables
+.env
+.env.local
+.env.*
+
+# Build outputs
+backend/dist/
+backend/build/
+frontend/dist/
+frontend/build/
+
+# Database
+prisma/migrations/
+
+# Logs
+*.log
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Python (if any Python files exist in backend)
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+```
