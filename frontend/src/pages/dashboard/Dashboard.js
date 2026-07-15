@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { dashboardAPI } from '../../services/api';
 
 const Dashboard = () => {
   const [stats, setStats] = useState({
