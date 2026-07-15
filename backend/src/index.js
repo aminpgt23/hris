@@ -25,6 +25,9 @@ require('./config/database');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Trust proxy for proper IP detection behind load balancers (Vercel, etc.)
+app.set('trust proxy', true);
+
 // Security middleware
 app.use(helmet());
 
@@ -65,11 +68,17 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
-// Rate limiting
+// Rate limiting with proper proxy configuration
 const limiter = rateLimit({
   windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000,
   max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 100,
-  message: 'Too many requests from this IP, please try again later.'
+  message: 'Too many requests from this IP, please try again later.',
+  standardHeaders: true,
+  legacyHeaders: false,
+  // Use X-Forwarded-For header for IP detection when behind proxy
+  keyGenerator: (req) => {
+    return req.ip || req.connection.remoteAddress || req.socket.remoteAddress;
+  }
 });
 app.use('/api/', limiter);
 
