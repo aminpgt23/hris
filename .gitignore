@@ -1,15 +1,1 @@
-```
-# Dependencies
-node_modules/
-
-# Logs and temp files
-*.log
-
-# Environment
-.env
-.env.local
-*.env.*
-
-# Editors
-.vscode/
-```
+(frontend/src/pages/dashboard/Dashboard.js is a source file, and there are no build artifacts, dependencies, or temporary files in the changes, so no .gitignore rules are needed)
