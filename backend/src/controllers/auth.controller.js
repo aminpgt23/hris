@@ -115,7 +115,16 @@ exports.login = async (req, res, next) => {
           email: user.email,
           roleName: user.role_name,
           employeeNumber: user.employee_number,
-          permissions: user.permissions ? JSON.parse(user.permissions) : []
+          permissions: (() => {
+            if (!user.permissions) return [];
+            try {
+              return JSON.parse(user.permissions);
+            } catch (e) {
+              // If permissions is not valid JSON, return as array or empty
+              console.warn('Invalid permissions JSON for user:', user.username);
+              return Array.isArray(user.permissions) ? user.permissions : [];
+            }
+          })()
         }
       }
     });
