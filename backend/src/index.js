@@ -28,19 +28,35 @@ const PORT = process.env.PORT || 3000;
 // Security middleware
 app.use(helmet());
 
-// CORS configuration - Dynamic origin support
-const allowedOrigins = process.env.ALLOWED_ORIGINS 
-  ? process.env.ALLOWED_ORIGINS.split(',') 
-  : ['http://localhost:3000', 'http://localhost:3001'];
+// CORS configuration - Dynamic origin support with safe parsing
+const getAllowedList = () => {
+  const originsEnv = process.env.ALLOWED_ORIGINS || process.env.CORS_ORIGIN;
+  
+  if (!originsEnv) {
+    // Default allowed origins for development
+    return ['http://localhost:3000', 'http://localhost:3001'];
+  }
+  
+  // Split by comma and trim whitespace, filter out empty strings
+  return originsEnv.split(',').map(origin => origin.trim()).filter(origin => origin.length > 0);
+};
+
+const allowedOrigins = getAllowedList();
 
 app.use(cors({
   origin: function (origin, callback) {
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
     
-    if (allowedOrigins.indexOf(origin) !== -1 || origin.includes('vercel.app')) {
+    // Always allow vercel.app subdomains in production
+    if (origin.includes('vercel.app')) {
+      return callback(null, true);
+    }
+    
+    if (allowedOrigins.indexOf(origin) !== -1) {
       callback(null, true);
     } else {
+      console.warn(`CORS blocked origin: ${origin}`);
       callback(new Error('Not allowed by CORS'));
     }
   },
