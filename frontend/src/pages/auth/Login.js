@@ -1,22 +1,20 @@
 import React, { useState } from 'react';
-import { useNavigate, Link as RouterLink } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import PersonIcon from '@mui/icons-material/Person';
+import LockIcon from '@mui/icons-material/Lock';
+import './Login.css';
 
-const Login = () => {
+export default function Login() {
   const navigate = useNavigate();
   const { login } = useAuth();
-  const [formData, setFormData] = useState({
-    username: '',
-    password: '',
-  });
+  const [formData, setFormData] = useState({ username: '', password: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showDemo, setShowDemo] = useState(false);
 
   const handleChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value,
-    });
+    setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
     setError('');
   };
 
@@ -26,158 +24,135 @@ const Login = () => {
     setError('');
 
     const result = await login(formData);
-
     if (result.success) {
       navigate('/dashboard');
     } else {
       setError(result.message || 'Login failed. Please try again.');
     }
-
     setLoading(false);
   };
 
+  const fillDemo = (username, password) => {
+    setFormData({ username, password });
+  };
+
   return (
-    <div style={{
-      display: 'flex',
-      justifyContent: 'center',
-      alignItems: 'center',
-      minHeight: '100vh',
-      backgroundColor: '#f5f5f5'
-    }}>
-      <div style={{
-        backgroundColor: 'white',
-        padding: '2rem',
-        borderRadius: '8px',
-        boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
-        width: '100%',
-        maxWidth: '400px'
-      }}>
-        {/* Logo/Header */}
-        <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-          <h1 style={{ color: '#1976d2', margin: '0 0 0.5rem 0' }}>HRIS Payroll</h1>
-          <p style={{ color: '#666', margin: 0 }}>Enterprise System</p>
+    <div className="login-page">
+      <div className="login-bg-shapes" />
+
+      <div className="login-container">
+        {/* Brand Section */}
+        <div className="login-brand">
+          <div className="login-logo">H</div>
+          <h1 className="login-title">HRIS System</h1>
+          <p className="login-subtitle">Enterprise System</p>
+          <p className="login-desc">
+            Complete human resource information system with integrated payroll,
+            attendance, leave, compliance, and analytics.
+          </p>
         </div>
 
-        {/* Error Message */}
-        {error && (
-          <div style={{
-            backgroundColor: '#ffebee',
-            color: '#c62828',
-            padding: '0.75rem',
-            borderRadius: '4px',
-            marginBottom: '1rem',
-            fontSize: '0.9rem'
-          }}>
-            {error}
+        {/* Form Section */}
+        <div className="login-form-wrapper">
+          <div className="login-form-card">
+            <h2 className="login-form-title">Sign In</h2>
+            <p className="login-form-subtitle">Enter your credentials to continue</p>
+
+            {error && (
+              <div className="login-error">
+                <span className="login-error-icon">!</span>
+                {error}
+              </div>
+            )}
+
+            <form onSubmit={handleSubmit}>
+              <div className="form-group">
+                <label className="form-label">Username or Email</label>
+                <div className="login-input-wrapper">
+                  <span className="login-input-icon"><PersonIcon fontSize="small" /></span>
+                  <input
+                    type="text"
+                    name="username"
+                    value={formData.username}
+                    onChange={handleChange}
+                    required
+                    className="login-input"
+                    placeholder="Enter your username"
+                    autoComplete="username"
+                  />
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Password</label>
+                <div className="login-input-wrapper">
+                  <span className="login-input-icon"><LockIcon fontSize="small" /></span>
+                  <input
+                    type="password"
+                    name="password"
+                    value={formData.password}
+                    onChange={handleChange}
+                    required
+                    className="login-input"
+                    placeholder="Enter your password"
+                    autoComplete="current-password"
+                  />
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                className="login-submit"
+                disabled={loading}
+              >
+                {loading ? (
+                  <><span className="login-spinner" /> Signing in...</>
+                ) : (
+                  'Sign In'
+                )}
+              </button>
+            </form>
+
+            {/* Demo Credentials Toggle */}
+            <div className="login-demo-toggle">
+              <button
+                type="button"
+                className="login-demo-btn"
+                onClick={() => setShowDemo(!showDemo)}
+              >
+                {showDemo ? 'Hide' : 'Show'} Demo Credentials
+              </button>
+
+              {showDemo && (
+                <div className="login-demo-list">
+                  {[
+                    { role: 'Administrator', user: 'admin', pass: 'admin123' },
+                    { role: 'HR Staff', user: 'hrstaff', pass: 'hr123' },
+                    { role: 'Manager', user: 'manager', pass: 'mgr123' },
+                    { role: 'Employee', user: 'employee', pass: 'emp123' },
+                    { role: 'Finance', user: 'finance', pass: 'fin123' },
+                    { role: 'Director', user: 'director', pass: 'dir123' },
+                  ].map(demo => (
+                    <button
+                      key={demo.user}
+                      type="button"
+                      className="login-demo-item"
+                      onClick={() => fillDemo(demo.user, demo.pass)}
+                    >
+                      <span className="demo-role">{demo.role}</span>
+                      <span className="demo-cred">{demo.user} / {demo.pass}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
-        )}
 
-        {/* Login Form */}
-        <form onSubmit={handleSubmit}>
-          <div style={{ marginBottom: '1rem' }}>
-            <label style={{
-              display: 'block',
-              marginBottom: '0.5rem',
-              fontWeight: '500',
-              color: '#333'
-            }}>
-              Username or Email
-            </label>
-            <input
-              type="text"
-              name="username"
-              value={formData.username}
-              onChange={handleChange}
-              required
-              style={{
-                width: '100%',
-                padding: '0.75rem',
-                border: '1px solid #ddd',
-                borderRadius: '4px',
-                fontSize: '1rem',
-                boxSizing: 'border-box'
-              }}
-              placeholder="Enter your username"
-            />
-          </div>
-
-          <div style={{ marginBottom: '1.5rem' }}>
-            <label style={{
-              display: 'block',
-              marginBottom: '0.5rem',
-              fontWeight: '500',
-              color: '#333'
-            }}>
-              Password
-            </label>
-            <input
-              type="password"
-              name="password"
-              value={formData.password}
-              onChange={handleChange}
-              required
-              style={{
-                width: '100%',
-                padding: '0.75rem',
-                border: '1px solid #ddd',
-                borderRadius: '4px',
-                fontSize: '1rem',
-                boxSizing: 'border-box'
-              }}
-              placeholder="Enter your password"
-            />
-          </div>
-
-          <button
-            type="submit"
-            disabled={loading}
-            style={{
-              width: '100%',
-              padding: '0.875rem',
-              backgroundColor: loading ? '#90caf9' : '#1976d2',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              fontSize: '1rem',
-              fontWeight: '500',
-              cursor: loading ? 'not-allowed' : 'pointer',
-              transition: 'background-color 0.2s'
-            }}
-          >
-            {loading ? 'Logging in...' : 'Login'}
-          </button>
-        </form>
-
-        {/* Demo Credentials */}
-        <div style={{
-          marginTop: '1.5rem',
-          padding: '1rem',
-          backgroundColor: '#e3f2fd',
-          borderRadius: '4px',
-          fontSize: '0.85rem'
-        }}>
-          <strong style={{ color: '#1976d2' }}>Demo Credentials:</strong>
-          <div style={{ marginTop: '0.5rem', color: '#555' }}>
-            <div>Admin: admin / admin123</div>
-            <div>HR: hrstaff / hr123</div>
-            <div>Manager: manager / mgr123</div>
-            <div>Employee: employee / emp123</div>
-          </div>
-        </div>
-
-        {/* Footer Links */}
-        <div style={{
-          marginTop: '1.5rem',
-          textAlign: 'center',
-          fontSize: '0.85rem'
-        }}>
-          <RouterLink to="/forgot-password" style={{ color: '#1976d2', textDecoration: 'none' }}>
-            Forgot Password?
-          </RouterLink>
+          <p className="login-footer-text">
+            &copy; {new Date().getFullYear()} HRIS System. All rights reserved.
+          </p>
         </div>
       </div>
     </div>
   );
-};
-
-export default Login;
+}

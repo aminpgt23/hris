@@ -1,7 +1,7 @@
 {
   "name": "hris-payroll-backend",
   "version": "1.0.0",
-  "description": "HRIS Payroll Enterprise System - Backend API",
+  "description": "HRIS System Enterprise - Backend API",
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",

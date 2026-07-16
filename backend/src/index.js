@@ -71,7 +71,7 @@ app.use(cors({
 // Rate limiting with proper proxy configuration
 const limiter = rateLimit({
   windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000,
-  max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 100,
+  max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 500,
   message: 'Too many requests from this IP, please try again later.',
   standardHeaders: true,
   legacyHeaders: false,
@@ -97,7 +97,7 @@ app.get('/health', (req, res) => {
   res.status(200).json({
     status: 'OK',
     timestamp: new Date().toISOString(),
-    service: 'HRIS Payroll API'
+    service: 'HRIS System API'
   });
 });
 
@@ -106,7 +106,17 @@ app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/companies', companyRoutes);
 app.use('/api/employees', employeeRoutes);
-app.use('/api/attendance', attendanceRoutes);
+
+app.use('/api/core-hr', require('./modules/core-hr'));
+app.use('/api/attendance', require('./modules/attendance'));
+app.use('/api/leave', require('./modules/leave'));
+app.use('/api/payroll', require('./modules/payroll'));
+app.use('/api/compliance', require('./modules/compliance'));
+app.use('/api/ess', require('./modules/ess'));
+app.use('/api/assets', require('./modules/asset'));
+app.use('/api/training', require('./modules/training'));
+app.use('/api/notifications', require('./modules/notification'));
+app.use('/api/reports', require('./modules/reports'));
 
 // 404 handler
 app.use((req, res) => {
@@ -123,7 +133,7 @@ app.use(errorHandler);
 app.listen(PORT, () => {
   console.log(`
 ╔════════════════════════════════════════════╗
-║     HRIS Payroll Enterprise System         ║
+║     HRIS System Enterprise                 ║
 ║     Backend Server Running                 ║
 ╚════════════════════════════════════════════╝
   → Environment: ${process.env.NODE_ENV || 'development'}

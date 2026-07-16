@@ -55,7 +55,7 @@ const authMiddleware = async (req, res, next) => {
       roleId: user.role_id,
       roleName: user.role_name,
       employeeId: user.employee_id,
-      permissions: user.permissions ? JSON.parse(user.permissions) : []
+      permissions: user.permissions ? (() => { try { const p = JSON.parse(user.permissions); return Array.isArray(p) ? p : [p]; } catch { return [user.permissions]; } })() : []
     };
 
     next();

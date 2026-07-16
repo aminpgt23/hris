@@ -1,0 +1,101 @@
+.ess-profile {
+  display: flex;
+  gap: var(--space-4);
+  margin-bottom: var(--space-4);
+}
+
+.ess-avatar {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  font-weight: var(--weight-bold);
+  flex-shrink: 0;
+}
+
+.ess-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ess-name {
+  font-size: var(--text-base);
+  font-weight: var(--weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.ess-detail {
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+}
+
+.ess-actions {
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--color-border-light);
+}
+
+.ess-quick-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3);
+}
+
+.ess-quick-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  font-family: var(--font-ui);
+}
+
+.ess-quick-btn:hover {
+  border-color: var(--color-primary);
+  background: var(--color-primary-light);
+}
+
+.eq-icon { font-size: 1.5rem; }
+.eq-label { font-size: var(--text-xs); color: var(--color-text-secondary); }
+
+.ess-payslip {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin-bottom: var(--space-4);
+}
+
+.ps-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--text-sm);
+  padding: var(--space-1) 0;
+  color: var(--color-text-primary);
+}
+
+.ps-total {
+  font-weight: var(--weight-semibold);
+  border-top: 1px solid var(--color-border);
+  padding-top: var(--space-2);
+  margin-top: var(--space-1);
+}
+
+.ps-net {
+  font-weight: var(--weight-bold);
+  color: var(--color-success);
+  border-top: 2px solid var(--color-border);
+  padding-top: var(--space-2);
+  margin-top: var(--space-1);
+  font-size: var(--text-base);
+}

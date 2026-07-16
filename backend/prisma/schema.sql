@@ -1,11 +1,4 @@
--- ============================================
--- HRIS Payroll Enterprise Database Schema
--- Multi-company, Multi-branch Support
--- ============================================
 
--- Create database
-CREATE DATABASE IF NOT EXISTS hris_payroll_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-USE hris_payroll_db;
 
 -- ============================================
 -- SYSTEM & AUTHENTICATION TABLES
