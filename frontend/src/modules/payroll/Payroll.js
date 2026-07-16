@@ -6,7 +6,6 @@ import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import RefreshIcon from '@mui/icons-material/Refresh';
-import CloseIcon from '@mui/icons-material/Close';
 import './Payroll.css';
 
 const Rp = (v) => v != null ? `Rp${Number(v).toLocaleString('id-ID')}` : '-';

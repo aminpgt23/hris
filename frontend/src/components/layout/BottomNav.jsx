@@ -8,8 +8,6 @@ import BeachAccessIcon from '@mui/icons-material/BeachAccess';
 import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
 import AssessmentIcon from '@mui/icons-material/Assessment';
 import PersonIcon from '@mui/icons-material/Person';
-import NotificationsIcon from '@mui/icons-material/Notifications';
-import BuildIcon from '@mui/icons-material/Build';
 import MoreHorizIcon from '@mui/icons-material/MoreHoriz';
 import './BottomNav.css';
 

@@ -28,7 +28,8 @@ export function ToastProvider({ children }) {
   toast.warning = (msg, dur) => addToast('warning', msg, dur);
 
   useEffect(() => {
-    return () => { Object.values(timers.current).forEach(clearTimeout); };
+    const t = timers.current;
+    return () => { Object.values(t).forEach(clearTimeout); };
   }, []);
 
   return (
