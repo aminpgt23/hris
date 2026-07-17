@@ -160,8 +160,19 @@ img {
 .search-field .search-icon {
   position: absolute;
   left: 12px;
+  top: 0;
+  bottom: 0;
+  width: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   color: var(--color-text-tertiary);
   pointer-events: none;
+}
+
+.search-field .search-icon svg {
+  font-size: 18px;
+  display: block;
 }
 
 .table-search-input {

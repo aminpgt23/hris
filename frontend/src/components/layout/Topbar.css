@@ -35,13 +35,21 @@
 
 .search-icon {
   position: absolute;
-  left: var(--space-3);
-  top: 50%;
-  transform: translateY(-50%);
+  left: 12px;
+  top: 0;
+  bottom: 0;
+  width: 20px;
   display: flex;
   align-items: center;
-  opacity: 0.5;
+  justify-content: center;
+  opacity: 0.45;
   color: var(--color-text-secondary);
+  pointer-events: none;
+}
+
+.search-icon svg {
+  font-size: 18px;
+  display: block;
 }
 
 .search-input {
@@ -503,10 +511,12 @@
 @media (max-width: 768px) {
   .topbar {
     left: 0 !important;
+    padding: 0 var(--space-3);
   }
 
   .topbar-left {
-    max-width: none;
+    max-width: calc(100% - 140px);
+    min-width: 0;
   }
 
   .search-shortcut {
@@ -518,6 +528,7 @@
   }
 
   .topbar-right {
+    flex-shrink: 0;
     gap: var(--space-1);
   }
 }
