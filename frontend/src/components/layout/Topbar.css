@@ -515,7 +515,7 @@
   }
 
   .topbar-left {
-    max-width: calc(100% - 140px);
+    max-width: calc(100% - 130px);
     min-width: 0;
   }
 
@@ -529,6 +529,24 @@
 
   .topbar-right {
     flex-shrink: 0;
-    gap: var(--space-1);
+    gap: 4px;
+  }
+
+  .topbar-icon-btn {
+    width: 34px;
+    height: 34px;
+  }
+
+  .notification-dot {
+    top: 5px;
+    right: 5px;
+    width: 6px;
+    height: 6px;
+  }
+
+  .profile-avatar {
+    width: 30px;
+    height: 30px;
+    font-size: var(--text-xs);
   }
 }

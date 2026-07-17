@@ -104,7 +104,7 @@ export default function Attendance() {
       <Card>
         <div className="table-toolbar">
           <div className="search-field">
-            <SearchIcon fontSize="small" className="search-icon" />
+            <span className="search-icon"><SearchIcon fontSize="small" /></span>
             <input type="text" placeholder="Search employee..." className="table-search-input"
               value={search} onChange={e => setSearch(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && handleSearch()} />

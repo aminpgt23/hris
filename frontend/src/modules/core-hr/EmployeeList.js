@@ -90,7 +90,7 @@ export default function EmployeeList() {
       <Card>
         <div className="table-toolbar">
           <div className="search-field">
-            <SearchIcon fontSize="small" className="search-icon" />
+            <span className="search-icon"><SearchIcon fontSize="small" /></span>
             <input
               type="text"
               placeholder="Search employees..."
