@@ -9,6 +9,7 @@ import BackupIcon from '@mui/icons-material/Backup';
 import PaletteIcon from '@mui/icons-material/Palette';
 import LanguageIcon from '@mui/icons-material/Language';
 import { useToast } from '../../context/ToastContext';
+import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
 import './SystemSettings.css';
 
@@ -23,9 +24,19 @@ const settingSections = [
   { id: 'localization', label: 'Localization', icon: LanguageIcon },
 ];
 
+const ADMIN_ROLES = ['Administrator'];
+
+function getVisibleSections(roleName) {
+  if (ADMIN_ROLES.includes(roleName)) return settingSections;
+  return settingSections.filter(s => s.id === 'appearance' || s.id === 'localization');
+}
+
 export default function SystemSettings() {
   const toast = useToast();
-  const [activeSection, setActiveSection] = useState('general');
+  const { user } = useAuth();
+  const visibleSections = getVisibleSections(user?.roleName);
+  const defaultSection = visibleSections[0]?.id || 'appearance';
+  const [activeSection, setActiveSection] = useState(defaultSection);
   const [settings, setSettings] = useState({});
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -180,18 +191,18 @@ export default function SystemSettings() {
     }
   };
 
-  const SectionIcon = settingSections.find(s => s.id === activeSection)?.icon || SettingsIcon;
+  const SectionIcon = visibleSections.find(s => s.id === activeSection)?.icon || SettingsIcon;
 
   return (
     <div className="system-settings">
       <div className="page-header">
-        <h1>System Settings</h1>
-        <p>Configure application settings and preferences</p>
+        <h1>Settings</h1>
+        <p>{ADMIN_ROLES.includes(user?.roleName) ? 'Configure application settings and preferences' : 'Customize your appearance and region preferences'}</p>
       </div>
 
       <div className="settings-layout">
         <Card className="settings-sidebar">
-          {settingSections.map(section => {
+          {visibleSections.map(section => {
             const Icon = section.icon;
             return (
               <button
@@ -215,7 +226,7 @@ export default function SystemSettings() {
             <>
               <div className="settings-section-header">
                 <SectionIcon fontSize="small" />
-                <h3>{settingSections.find(s => s.id === activeSection)?.label || activeSection}</h3>
+                <h3>{visibleSections.find(s => s.id === activeSection)?.label || activeSection}</h3>
               </div>
               <div className="settings-section-body">
                 {renderSection()}
