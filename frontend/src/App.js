@@ -29,6 +29,7 @@ import { Notifications } from './modules/notification';
 import { Reports } from './modules/reports';
 import SystemSettings from './modules/system/SystemSettings';
 import MasterData from './modules/master-data/MasterData';
+import { Approvals } from './modules/approvals';
 
 // ---------- Protected Route ----------
 const ProtectedRoute = ({ children }) => {
@@ -126,12 +127,7 @@ const AppContent = () => {
         <ProtectedRoute><MainLayout><SystemSettings /></MainLayout></ProtectedRoute>
       } />
       <Route path="/approvals/*" element={
-        <ProtectedRoute><MainLayout>
-          <div className="coming-soon">
-            <h2>Approvals</h2>
-            <p>Approval workflows coming soon.</p>
-          </div>
-        </MainLayout></ProtectedRoute>
+        <ProtectedRoute><MainLayout><Approvals /></MainLayout></ProtectedRoute>
       } />
 
       <Route path="/" element={<Navigate to="/dashboard" replace />} />

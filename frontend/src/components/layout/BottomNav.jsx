@@ -8,6 +8,7 @@ import BeachAccessIcon from '@mui/icons-material/BeachAccess';
 import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
 import AssessmentIcon from '@mui/icons-material/Assessment';
 import PersonIcon from '@mui/icons-material/Person';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import MoreHorizIcon from '@mui/icons-material/MoreHoriz';
 import './BottomNav.css';
 
@@ -15,23 +16,23 @@ const roleBottomNav = {
   Administrator: [
     { label: 'Dashboard', path: '/dashboard', icon: DashboardIcon },
     { label: 'Core HR', path: '/core-hr', icon: PeopleIcon },
-    { label: 'Attendance', path: '/attendance', icon: AccessTimeIcon },
+    { label: 'Approvals', path: '/approvals', icon: CheckCircleIcon },
     { label: 'Payroll', path: '/payroll', icon: AccountBalanceWalletIcon },
     { label: 'More', path: '/system', icon: MoreHorizIcon },
   ],
   'HR Staff': [
     { label: 'Dashboard', path: '/dashboard', icon: DashboardIcon },
     { label: 'Core HR', path: '/core-hr', icon: PeopleIcon },
-    { label: 'Attendance', path: '/attendance', icon: AccessTimeIcon },
+    { label: 'Approvals', path: '/approvals', icon: CheckCircleIcon },
     { label: 'Payroll', path: '/payroll', icon: AccountBalanceWalletIcon },
     { label: 'Reports', path: '/reports', icon: AssessmentIcon },
   ],
   Manager: [
     { label: 'Dashboard', path: '/dashboard', icon: DashboardIcon },
     { label: 'Team', path: '/core-hr', icon: PeopleIcon },
+    { label: 'Approvals', path: '/approvals', icon: CheckCircleIcon },
     { label: 'Attendance', path: '/attendance', icon: AccessTimeIcon },
-    { label: 'Leave', path: '/leave', icon: BeachAccessIcon },
-    { label: 'Reports', path: '/reports', icon: AssessmentIcon },
+    { label: 'More', path: '/reports', icon: MoreHorizIcon },
   ],
   Employee: [
     { label: 'Home', path: '/dashboard', icon: DashboardIcon },
