@@ -39,16 +39,16 @@ exports.checkIn = async (req, res, next) => {
       }
     }
 
-    const { location_lat, location_lng, location_name, method, device_id } = req.body;
+    const { location_lat, location_lng, location_name, method, device_id, photo } = req.body;
 
     const [result] = await db.execute(
       `INSERT INTO attendance_records 
        (employee_id, schedule_id, date, check_in_time, check_in_location_lat, check_in_location_lng,
-        check_in_location_name, check_in_method, check_in_device_id, status, late_minutes)
-       VALUES (?, ?, ?, NOW(), ?, ?, ?, ?, ?, ?, ?)`,
+        check_in_location_name, check_in_method, check_in_device_id, check_in_photo, status, late_minutes)
+       VALUES (?, ?, ?, NOW(), ?, ?, ?, ?, ?, ?, ?, ?)`,
       [employeeId, schedule[0]?.id || null, today,
        location_lat || null, location_lng || null, location_name || null,
-       method || 'Web', device_id || null, status, lateMinutes]
+       method || 'Web', device_id || null, photo || null, status, lateMinutes]
     );
 
     res.json({ success: true, message: 'Check-in recorded', data: { id: result.insertId, status, time: now } });
@@ -76,16 +76,16 @@ exports.checkOut = async (req, res, next) => {
     const workMs = checkOut - checkIn;
     const workHours = Math.round((workMs / 3600000) * 100) / 100;
 
-    const { location_lat, location_lng, location_name, method, device_id } = req.body;
+    const { location_lat, location_lng, location_name, method, device_id, photo } = req.body;
 
     await db.execute(
       `UPDATE attendance_records SET 
        check_out_time = NOW(), work_hours = ?,
        check_out_location_lat = ?, check_out_location_lng = ?, check_out_location_name = ?,
-       check_out_method = ?, check_out_device_id = ?
+       check_out_method = ?, check_out_device_id = ?, check_out_photo = ?
        WHERE id = ?`,
       [workHours, location_lat || null, location_lng || null, location_name || null,
-       method || 'Web', device_id || null, record.id]
+       method || 'Web', device_id || null, photo || null, record.id]
     );
 
     res.json({ success: true, message: 'Check-out recorded', data: { workHours } });

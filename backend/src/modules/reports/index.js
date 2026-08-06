@@ -41,6 +41,118 @@ router.get('/dashboard/headcount', authorize('Administrator', 'HR Staff', 'Manag
   } catch (error) { next(error); }
 });
 
+// Personal dashboard for Employee role: own attendance + leave balances
+router.get('/dashboard/my-stats', authorize('Employee'), async (req, res, next) => {
+  try {
+    const employeeId = req.user.employeeId;
+    if (!employeeId) return res.status(400).json({ success: false, message: 'No employee profile linked' });
+
+    const today = new Date().toISOString().split('T')[0];
+    const monthStart = today.slice(0, 8) + '01';
+
+    const [todayAtt] = await db.execute(
+      `SELECT status, check_in_time, check_out_time, work_hours, check_in_method
+       FROM attendance_records WHERE employee_id = ? AND date = ?`,
+      [employeeId, today]
+    );
+
+    const [monthAtt] = await db.execute(
+      `SELECT COUNT(*) as total_days,
+              SUM(CASE WHEN status = 'Present' THEN 1 ELSE 0 END) as present,
+              SUM(CASE WHEN status = 'Late' THEN 1 ELSE 0 END) as late,
+              SUM(CASE WHEN status = 'Absent' THEN 1 ELSE 0 END) as absent,
+              COALESCE(SUM(work_hours), 0) as total_hours
+       FROM attendance_records
+       WHERE employee_id = ? AND date >= ? AND date <= ?`,
+      [employeeId, monthStart, today]
+    );
+
+    const [balances] = await db.execute(
+      `SELECT lb.*, lt.name as leave_type_name, lt.color_code
+       FROM leave_balances lb
+       JOIN leave_types lt ON lb.leave_type_id = lt.id
+       WHERE lb.employee_id = ? AND lb.year = YEAR(CURDATE())`,
+      [employeeId]
+    );
+
+    const [pendingLeave] = await db.execute(
+      `SELECT COUNT(*) as count FROM leave_requests
+       WHERE employee_id = ? AND status IN ('Pending Manager', 'Pending HR')`,
+      [employeeId]
+    );
+
+    res.json({
+      success: true,
+      data: {
+        today: todayAtt[0] || null,
+        month: monthAtt[0] || { total_days: 0, present: 0, late: 0, absent: 0, total_hours: 0 },
+        balances,
+        pendingLeave: pendingLeave[0].count
+      }
+    });
+  } catch (error) { next(error); }
+});
+
+// Team dashboard for Manager role: department headcount, today attendance, pending approvals
+router.get('/dashboard/team-stats', authorize('Manager'), async (req, res, next) => {
+  try {
+    const managerId = req.user.employeeId;
+    if (!managerId) return res.status(400).json({ success: false, message: 'No employee profile linked' });
+
+    const today = new Date().toISOString().split('T')[0];
+
+    const [manager] = await db.execute(
+      'SELECT department_id FROM employees WHERE id = ?', [managerId]
+    );
+    const deptId = manager[0]?.department_id;
+
+    let where = 'WHERE 1=1';
+    const params = [];
+    if (deptId) { where += ' AND e.department_id = ?'; params.push(deptId); }
+
+    const [teamCount] = await db.execute(
+      `SELECT COUNT(*) as total FROM employees e ${where} AND e.is_active = TRUE`, params
+    );
+
+    const [todayAtt] = await db.execute(
+      `SELECT ar.status, COUNT(*) as count
+       FROM attendance_records ar JOIN employees e ON ar.employee_id = e.id
+       WHERE ar.date = ? ${deptId ? 'AND e.department_id = ?' : ''}
+       GROUP BY ar.status`,
+      deptId ? [today, deptId] : [today]
+    );
+    const attSummary = { present: 0, absent: 0, late: 0 };
+    todayAtt.forEach(r => { if (attSummary[r.status] !== undefined) attSummary[r.status] = r.count; });
+
+    const [pending] = await db.execute(
+      `SELECT COUNT(*) as count FROM leave_requests lr
+       JOIN employees e ON lr.employee_id = e.id
+       WHERE lr.status IN ('Pending Manager', 'Pending HR')
+       ${deptId ? 'AND e.department_id = ?' : ''}`,
+      deptId ? [deptId] : []
+    );
+
+    const [deptHeadcount] = await db.execute(
+      `SELECT e.department_id, d.name as department, COUNT(*) as total
+       FROM employees e LEFT JOIN departments d ON e.department_id = d.id
+       WHERE e.is_active = TRUE ${deptId ? 'AND e.department_id = ?' : ''}
+       GROUP BY e.department_id, d.name`,
+      deptId ? [deptId] : []
+    );
+
+    res.json({
+      success: true,
+      data: {
+        departmentId: deptId,
+        teamSize: teamCount[0].total,
+        today: attSummary,
+        pendingApprovals: pending[0].count,
+        deptHeadcount
+      }
+    });
+  } catch (error) { next(error); }
+});
+
 router.get('/dashboard/payroll-cost', authorize('Administrator', 'HR Staff', 'Finance', 'Director'), async (req, res, next) => {
   try {
     const [rows] = await db.execute(
