@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card, Table, Badge, Button } from '../../components/ui';
 import { useToast } from '../../context/ToastContext';
 import api from '../../services/api';
@@ -6,6 +6,9 @@ import SearchIcon from '@mui/icons-material/Search';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import StopIcon from '@mui/icons-material/Stop';
 import RefreshIcon from '@mui/icons-material/Refresh';
+import FaceIcon from '@mui/icons-material/Face';
+import LocationOnIcon from '@mui/icons-material/LocationOn';
+import FaceCaptureModal from './FaceCaptureModal';
 import './Attendance.css';
 
 const statusBadge = {
@@ -14,7 +17,15 @@ const statusBadge = {
   Absent: <Badge variant="danger">Absent</Badge>,
   'On Leave': <Badge variant="info">On Leave</Badge>,
   WFH: <Badge variant="info">WFH</Badge>,
+  'Work From Home': <Badge variant="info">Work From Home</Badge>,
   'Half Day': <Badge variant="neutral">Half Day</Badge>,
+};
+
+const methodBadge = {
+  Face: <Badge variant="success"><FaceIcon fontSize="inherit" /> Face</Badge>,
+  Biometric: <Badge variant="info">Biometric</Badge>,
+  Mobile: <Badge variant="neutral">Mobile</Badge>,
+  Web: <Badge variant="neutral">Web</Badge>,
 };
 
 export default function Attendance() {
@@ -24,8 +35,11 @@ export default function Attendance() {
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('all');
+  const [faceOpen, setFaceOpen] = useState(false);
+  const [action, setAction] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
 
-  const loadRecords = async () => {
+  const loadRecords = useCallback(async () => {
     setLoading(true);
     try {
       const [recRes, summRes] = await Promise.all([
@@ -37,14 +51,41 @@ export default function Attendance() {
       setStats({ present: s.present || 0, absent: s.absent || 0, late: s.late || 0, wfh: s.wfh || 0 });
     } catch { /* ignore */ }
     finally { setLoading(false); }
+  }, [search]);
+
+  useEffect(() => { loadRecords(); }, [loadRecords]);
+  useEffect(() => { if (!search) loadRecords(); }, [search, loadRecords]);
+
+  const handleSearch = () => { loadRecords(); };
+
+  const openFaceModal = (mode) => {
+    setAction(mode);
+    setFaceOpen(true);
   };
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { loadRecords(); }, []);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { if (!search) loadRecords(); }, [search]);
+  const handleFaceSubmit = async (faceData) => {
+    setSubmitting(true);
+    try {
+      const payload = {
+        method: 'Face',
+        photo: faceData.photo,
+        location_lat: faceData.location_lat,
+        location_lng: faceData.location_lng,
+        location_name: faceData.location_name,
+      };
+      const res = await api.post(`/attendance/${action === 'in' ? 'check-in' : 'check-out'}`, payload);
+      toast.success(res.data.message || (action === 'in' ? 'Check-in successful' : 'Check-out successful'));
+      setFaceOpen(false);
+      setAction(null);
+      loadRecords();
+    } catch (e) {
+      toast.error(e.response?.data?.message || 'Attendance submission failed');
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
-  const handleCheckIn = async () => {
+  const handleWebCheckIn = async () => {
     try {
       const res = await api.post('/attendance/check-in', { method: 'Web' });
       toast.success(res.data.message || 'Check-in successful');
@@ -54,7 +95,7 @@ export default function Attendance() {
     }
   };
 
-  const handleCheckOut = async () => {
+  const handleWebCheckOut = async () => {
     try {
       const res = await api.post('/attendance/check-out', { method: 'Web' });
       toast.success(res.data.message || 'Check-out successful');
@@ -64,8 +105,6 @@ export default function Attendance() {
     }
   };
 
-  const handleSearch = () => { loadRecords(); };
-
   const filtered = records.filter(r => {
     if (filter === 'all') return true;
     return (r.status || '').toLowerCase() === filter;
@@ -74,9 +113,13 @@ export default function Attendance() {
   const columns = [
     { key: 'date', label: 'Date', render: (v) => v ? new Date(v).toLocaleDateString() : '-' },
     { key: 'employee_name', label: 'Employee', render: (v, r) => v || r.employee || '-' },
-    { key: 'check_in_time', label: 'Check In', render: (v) => v ? new Date(v).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '-' },
-    { key: 'check_out_time', label: 'Check Out', render: (v) => v ? new Date(v).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '-' },
+    { key: 'check_in_time', label: 'Check In', render: (v, r) => v ? `${new Date(v).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} ${r.check_in_method ? methodBadge[r.check_in_method] : ''}` : '-' },
+    { key: 'check_out_time', label: 'Check Out', render: (v, r) => v ? `${new Date(v).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} ${r.check_out_method ? methodBadge[r.check_out_method] : ''}` : '-' },
     { key: 'status', label: 'Status', render: (v) => statusBadge[v] || v || '-' },
+    { key: 'location', label: 'Location', render: (_, r) => {
+        const loc = r.check_in_location_name || (r.check_in_location_lat ? `${Number(r.check_in_location_lat).toFixed(6)}, ${Number(r.check_in_location_lng).toFixed(6)}` : null);
+        return loc ? <span className="att-location"><LocationOnIcon fontSize="inherit" /> {loc}</span> : '-';
+      } },
     { key: 'work_hours', label: 'Hours', render: (v) => v ? `${Number(v).toFixed(1)}h` : '-' },
   ];
 
@@ -88,8 +131,10 @@ export default function Attendance() {
           <p>Manage employee attendance records</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={handleCheckIn}><PlayArrowIcon fontSize="small" /> Check In</Button>
-          <Button variant="outline" size="sm" onClick={handleCheckOut}><StopIcon fontSize="small" /> Check Out</Button>
+          <Button variant="primary" size="sm" onClick={() => openFaceModal('in')}><FaceIcon fontSize="small" /> Check In</Button>
+          <Button variant="outline" size="sm" onClick={() => openFaceModal('out')}><StopIcon fontSize="small" /> Check Out</Button>
+          <Button variant="ghost" size="sm" onClick={handleWebCheckIn} title="Quick check-in (Web)"><PlayArrowIcon fontSize="small" /></Button>
+          <Button variant="ghost" size="sm" onClick={handleWebCheckOut} title="Quick check-out (Web)"><StopIcon fontSize="small" /></Button>
           <Button variant="ghost" size="sm" onClick={loadRecords}><RefreshIcon fontSize="small" /></Button>
         </div>
       </div>
@@ -118,6 +163,13 @@ export default function Attendance() {
         </div>
         <Table columns={columns} data={filtered} loading={loading} emptyMessage="No attendance records found" sticky maxHeight="440px" />
       </Card>
+
+      <FaceCaptureModal
+        open={faceOpen}
+        onClose={() => { setFaceOpen(false); setAction(null); }}
+        onSubmit={handleFaceSubmit}
+        submitting={submitting}
+      />
     </div>
   );
 }

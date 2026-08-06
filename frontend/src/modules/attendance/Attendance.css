@@ -45,3 +45,11 @@
   border-bottom-color: var(--color-primary);
   font-weight: var(--weight-medium);
 }
+
+.att-location {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--text-xs);
+  color: var(--color-text-secondary);
+}

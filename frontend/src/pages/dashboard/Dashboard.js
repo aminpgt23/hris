@@ -1,11 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { Card } from '../../components/ui';
-import { HRISLineChart, HRISAreaChart, HRISPieChart, CHART_COLORS } from '../../components/charts';
+import { HRISLineChart, HRISAreaChart, HRISPieChart, HRISBarChart, CHART_COLORS } from '../../components/charts';
+import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
 import PeopleIcon from '@mui/icons-material/People';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import BeachAccessIcon from '@mui/icons-material/BeachAccess';
 import HourglassEmptyIcon from '@mui/icons-material/HourglassEmpty';
+import TimerIcon from '@mui/icons-material/Timer';
+import WorkIcon from '@mui/icons-material/Work';
+import PendingActionsIcon from '@mui/icons-material/PendingActions';
 import './Dashboard.css';
 
 const StatCard = ({ title, value, icon, color, trend, trendUp }) => (
@@ -39,7 +43,120 @@ const AttendanceSummary = ({ data }) => (
   </div>
 );
 
-export default function Dashboard() {
+function EmployeeDashboard() {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    api.get('/reports/dashboard/my-stats')
+      .then(res => { if (!cancelled) setData(res.data?.data || null); })
+      .catch(() => {})
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, []);
+
+  if (loading) return <div className="loading-screen">Loading your dashboard...</div>;
+  if (!data) return <div className="chart-empty">No personal data available</div>;
+
+  const today = data.today;
+  const month = data.month || {};
+  const pendingLeave = data.pendingLeave || 0;
+
+  const monthlyChart = ['present', 'late', 'absent'].map(k => ({ name: k.charAt(0).toUpperCase() + k.slice(1), value: month[k] || 0 }));
+
+  return (
+    <div>
+      <div className="stats-grid">
+        <StatCard title="Today's Status" value={today?.status || 'Not checked in'} icon={<CheckCircleIcon />} color={CHART_COLORS[2]}
+          trend={today?.check_in_time ? `In at ${new Date(today.check_in_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : 'Check in to start'} />
+        <StatCard title="Work Hours (Month)" value={month.total_hours ? `${Number(month.total_hours).toFixed(1)}h` : '0h'} icon={<TimerIcon />} color={CHART_COLORS[0]} trend={`${month.total_days || 0} attendance days`} />
+        <StatCard title="Present Days" value={month.present || 0} icon={<WorkIcon />} color={CHART_COLORS[2]} trend="This month" />
+        <StatCard title="Pending Leave" value={pendingLeave} icon={<PendingActionsIcon />} color={CHART_COLORS[3]} trend={pendingLeave > 0 ? 'Waiting approval' : 'No pending requests'} />
+      </div>
+
+      <div className="content-grid">
+        <Card title="My Monthly Attendance" subtitle="Present / Late / Absent breakdown">
+          <HRISPieChart data={monthlyChart} dataKey="value" nameKey="name" height={260} donut />
+        </Card>
+
+        <Card title="My Leave Balances" subtitle={new Date().getFullYear()}>
+          {data.balances && data.balances.length > 0 ? (
+            <div className="leave-balance-grid">
+              {data.balances.map(b => (
+                <div key={b.id} className="leave-balance-item">
+                  <span className="leave-balance-name">{b.leave_type_name}</span>
+                  <span className="leave-balance-value display-number" style={{ color: b.color_code || CHART_COLORS[0] }}>
+                    {b.closing_balance ?? b.remaining_days ?? 0}
+                  </span>
+                  <span className="leave-balance-label">days left</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="chart-empty">No leave balance data available</div>
+          )}
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+function ManagerDashboard() {
+  const [team, setTeam] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    api.get('/reports/dashboard/team-stats')
+      .then(res => { if (!cancelled) setTeam(res.data?.data || null); })
+      .catch(() => {})
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, []);
+
+  if (loading) return <div className="loading-screen">Loading team dashboard...</div>;
+  if (!team) return <div className="chart-empty">No team data available</div>;
+
+  const today = team.today || {};
+  const teamSize = team.teamSize || 0;
+
+  const attChart = ['present', 'late', 'absent'].map(k => ({ name: k.charAt(0).toUpperCase() + k.slice(1), value: today[k] || 0 }));
+  const deptChart = (team.deptHeadcount || []).map(d => ({ name: d.department || 'Unassigned', value: d.total }));
+
+  return (
+    <div>
+      <div className="stats-grid">
+        <StatCard title="Team Size" value={teamSize} icon={<PeopleIcon />} color={CHART_COLORS[0]} trend="Active team members" />
+        <StatCard title="Present Today" value={today.present || 0} icon={<CheckCircleIcon />} color={CHART_COLORS[2]}
+          trend={teamSize ? `${Math.round(((today.present || 0) / teamSize) * 100)}% attendance` : '-'} />
+        <StatCard title="Late Today" value={today.late || 0} icon={<TimerIcon />} color={CHART_COLORS[3]} trend="Team members arrived late" />
+        <StatCard title="Pending Approvals" value={team.pendingApprovals || 0} icon={<HourglassEmptyIcon />} color={CHART_COLORS[4]}
+          trend={(team.pendingApprovals || 0) > 0 ? 'Requires attention' : 'All clear'} />
+      </div>
+
+      <div className="content-grid">
+        <Card title="Team Attendance Today" subtitle="Present / Late / Absent">
+          <HRISPieChart data={attChart} dataKey="value" nameKey="name" height={280} donut />
+        </Card>
+
+        <Card title="Department Headcount" subtitle="Team composition">
+          {deptChart.length > 0 ? (
+            <HRISBarChart
+              data={deptChart} xKey="name"
+              bars={[{ key: 'value', name: 'Employees', color: CHART_COLORS[0] }]}
+              height={280}
+            />
+          ) : (
+            <div className="chart-empty">No department data available</div>
+          )}
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+function ExecutiveDashboard() {
   const [stats, setStats] = useState(null);
   const [headcountData, setHeadcountData] = useState([]);
   const [payrollData, setPayrollData] = useState([]);
@@ -63,7 +180,6 @@ export default function Dashboard() {
 
         setStats(statsRes.data?.data || null);
 
-        // Transform headcount data: API has {month, hires} → chart needs {month, total, new, left}
         const hcRaw = hcRes.data?.data || [];
         if (hcRaw.length > 0) {
           let running = 0;
@@ -76,7 +192,6 @@ export default function Dashboard() {
           setHeadcountData([]);
         }
 
-        // Transform payroll data
         const prRaw = prRes.data?.data || [];
         setPayrollData(prRaw.reverse().map(r => ({
           month: r.name ? r.name.split(' ')[0] : '-',
@@ -84,14 +199,12 @@ export default function Dashboard() {
           net: r.total_net || 0,
         })));
 
-        // Transform dept headcount
         const deptRaw = deptRes.data?.data || [];
         setDeptHeadcount(deptRaw.filter(d => d.total > 0).map(d => ({
           name: d.department,
           value: d.total,
         })));
 
-        // Attendance summary
         setAttendanceSummary(attRes.data?.data || null);
       } catch {
         if (!cancelled) setError(true);
@@ -112,11 +225,6 @@ export default function Dashboard() {
 
   return (
     <div>
-      <div className="page-header">
-        <h1>Dashboard</h1>
-        <p>Welcome to HRIS System Enterprise</p>
-      </div>
-
       {error && (
         <div className="alert alert-warning" style={{ marginBottom: 'var(--space-4)' }}>
           Some dashboard data could not be loaded. Displaying partial information.
@@ -178,6 +286,37 @@ export default function Dashboard() {
           )}
         </Card>
       </div>
+    </div>
+  );
+}
+
+export default function Dashboard() {
+  const { user } = useAuth();
+  const role = user?.roleName;
+
+  const subtitle = {
+    Employee: 'Your personal HR overview',
+    Manager: 'Team overview and approvals',
+    Administrator: 'Full company overview',
+    'HR Staff': 'Full company overview',
+    Finance: 'Company payroll & headcount',
+    Director: 'Executive company overview',
+  }[role] || 'Company overview';
+
+  return (
+    <div>
+      <div className="page-header">
+        <h1>Dashboard</h1>
+        <p>{subtitle}</p>
+      </div>
+
+      {role === 'Employee' ? (
+        <EmployeeDashboard />
+      ) : role === 'Manager' ? (
+        <ManagerDashboard />
+      ) : (
+        <ExecutiveDashboard />
+      )}
     </div>
   );
 }

@@ -92,6 +92,8 @@ export const dashboardAPI = {
   getAttendanceSummary: (params) => api.get('/dashboard/attendance', { params }),
   getLeaveSummary: (params) => api.get('/dashboard/leave', { params }),
   getPayrollCost: (params) => api.get('/dashboard/payroll-cost', { params }),
+  getMyStats: () => api.get('/dashboard/my-stats'),
+  getTeamStats: () => api.get('/dashboard/team-stats'),
 };
 
 export default api;
