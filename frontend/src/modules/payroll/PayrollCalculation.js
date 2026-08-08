@@ -51,11 +51,13 @@ export default function PayrollCalculation() {
   const [loading, setLoading] = useState(false);
   const [inputsLoading, setInputsLoading] = useState(false);
   const [employees, setEmployees] = useState([]);
+  const [employeesError, setEmployeesError] = useState('');
+  const [calcError, setCalcError] = useState('');
 
   useEffect(() => {
     api.get('/payroll/employees')
-      .then(r => setEmployees(r.data?.data || []))
-      .catch(() => {});
+      .then(r => { setEmployees(r.data?.data || []); setEmployeesError(''); })
+      .catch(() => setEmployeesError('Failed to load employee list - is the backend running?'));
   }, []);
 
   const set = (key) => (value) => setForm(f => ({ ...f, [key]: value }));
@@ -92,14 +94,19 @@ export default function PayrollCalculation() {
 
   const handleCalculate = async (e) => {
     e.preventDefault();
+    setCalcError('');
     if (!form.employee_id) return toast.error('Select an employee first');
     setLoading(true);
     try {
       const res = await api.post('/payroll/calculate', form);
       setResult(res.data?.data || null);
+      if (!res.data?.data) setCalcError('Calculation returned no result - check backend logs.');
       toast.success('Payroll calculated');
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Calculation failed');
+      setResult(null);
+      const msg = err.response?.data?.message || 'Calculation failed - is the backend running?';
+      setCalcError(msg);
+      toast.error(msg);
     } finally {
       setLoading(false);
     }
@@ -142,10 +149,13 @@ export default function PayrollCalculation() {
           <p className="sim-hint">
             {inputsLoading
               ? 'Loading employee data from database...'
-              : form.employee_id
-                ? `${form.employee_name || ''}${form.position ? ` - ${form.position}` : ''}`
-                : 'Select an employee - salary components load automatically from the database.'}
+              : employeesError
+                ? employeesError
+                : form.employee_id
+                  ? `${form.employee_name || ''}${form.position ? ` - ${form.position}` : ''}`
+                  : 'Select an employee - salary components load automatically from the database.'}
           </p>
+          {calcError && <p className="sim-error">{calcError}</p>}
 
           <div className="sim-card-title">Income Components</div>
           <Row>
