@@ -6,6 +6,8 @@ import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import RefreshIcon from '@mui/icons-material/Refresh';
+import CalculateIcon from '@mui/icons-material/Calculate';
+import PayrollCalculation from './PayrollCalculation';
 import './Payroll.css';
 
 const Rp = (v) => v != null ? `Rp${Number(v).toLocaleString('id-ID')}` : '-';
@@ -24,6 +26,7 @@ const tabs = [
   { id: 'periods', label: 'Payroll Periods' },
   { id: 'components', label: 'Salary Components' },
   { id: 'assignments', label: 'Employee Assignments' },
+  { id: 'calculation', label: 'Payroll Calculation' },
 ];
 
 const emptyPeriod = { company_id: 1, code: '', name: '', period_type: 'Monthly', payment_day: 25, cutoff_day: 20, fiscal_year: new Date().getFullYear(), period_number: '', start_date: '', end_date: '', payment_date: '' };
@@ -413,9 +416,16 @@ export default function Payroll() {
           <p>Manage payroll periods, salary components, and employee assignments</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="primary" size="sm" onClick={() => openCreate(tab === 'periods' ? 'period' : tab === 'components' ? 'component' : 'assignment')}>
-            <AddIcon fontSize="small" /> Add {tab === 'periods' ? 'Period' : tab === 'components' ? 'Component' : 'Assignment'}
-          </Button>
+          {tab !== 'calculation' && (
+            <Button variant="primary" size="sm" onClick={() => openCreate(tab === 'periods' ? 'period' : tab === 'components' ? 'component' : 'assignment')}>
+              <AddIcon fontSize="small" /> Add {tab === 'periods' ? 'Period' : tab === 'components' ? 'Component' : 'Assignment'}
+            </Button>
+          )}
+          {tab === 'calculation' && (
+            <Button variant="primary" size="sm" onClick={() => document.getElementById('sim-form')?.requestSubmit()}>
+              <CalculateIcon fontSize="small" /> Calculate
+            </Button>
+          )}
           <Button variant="ghost" size="sm" onClick={loadAll}><RefreshIcon fontSize="small" /></Button>
         </div>
       </div>
@@ -450,9 +460,11 @@ export default function Payroll() {
       </div>
 
       <Card>
-        <Table columns={activeColumns} data={activeData} loading={loading}
-          emptyMessage={`No ${tab === 'periods' ? 'payroll periods' : tab === 'components' ? 'salary components' : 'employee assignments'} found.`}
-          sticky maxHeight="480px" />
+        {tab === 'calculation'
+          ? <PayrollCalculation />
+          : <Table columns={activeColumns} data={activeData} loading={loading}
+              emptyMessage={`No ${tab === 'periods' ? 'payroll periods' : tab === 'components' ? 'salary components' : 'employee assignments'} found.`}
+              sticky maxHeight="480px" />}
       </Card>
     </div>
   );
