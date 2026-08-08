@@ -17,23 +17,26 @@ export default function Compliance() {
   const [loading, setLoading] = useState(true);
   const [bpjsHealth, setBpjsHealth] = useState(null);
   const [bpjsEmployment, setBpjsEmployment] = useState(null);
+  const [pension, setPension] = useState(null);
   const [taxRates, setTaxRates] = useState([]);
   const [year] = useState(new Date().getFullYear());
 
   // Configure modal state
-  const [configModal, setConfigModal] = useState(null); // 'health' | 'employment' | 'tax'
+  const [configModal, setConfigModal] = useState(null); // 'health' | 'employment' | 'tax' | 'pension'
   const [configData, setConfigData] = useState({});
 
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [hRes, eRes, tRes] = await Promise.all([
+      const [hRes, eRes, pRes, tRes] = await Promise.all([
         api.get('/compliance/bpjs-health', { params: { year } }).catch(() => ({ data: { data: [] } })),
         api.get('/compliance/bpjs-employment', { params: { year } }).catch(() => ({ data: { data: [] } })),
+        api.get('/compliance/pension', { params: { year } }).catch(() => ({ data: { data: [] } })),
         api.get('/compliance/tax-rates', { params: { year } }).catch(() => ({ data: { data: [] } })),
       ]);
       setBpjsHealth(hRes.data.data?.[0] || null);
       setBpjsEmployment(eRes.data.data?.[0] || null);
+      setPension(pRes.data.data?.[0] || null);
       setTaxRates(tRes.data.data || []);
     } catch (e) {
       console.error('Failed to load compliance data', e);
@@ -55,6 +58,8 @@ export default function Compliance() {
         await api.post('/compliance/bpjs-health', { ...configData, year });
       } else if (configModal === 'employment') {
         await api.post('/compliance/bpjs-employment', { ...configData, year });
+      } else if (configModal === 'pension') {
+        await api.post('/compliance/pension', { ...configData, year });
       } else if (configModal === 'tax') {
         const layers = taxRates.map((tr, i) => ({
           layer_number: tr.layer_number || i + 1,
@@ -84,7 +89,7 @@ export default function Compliance() {
 
   const renderConfigModal = () => {
     if (!configModal) return null;
-    const titles = { health: 'BPJS Kesehatan Configuration', employment: 'BPJS Ketenagakerjaan Configuration', tax: 'PPh21 Tax Rates' };
+    const titles = { health: 'BPJS Kesehatan Configuration', employment: 'BPJS Ketenagakerjaan Configuration', pension: 'Pension Configuration', tax: 'PPh21 Tax Rates' };
     return (
       <Modal open={!!configModal} onClose={() => setConfigModal(null)} title={titles[configModal]} size="lg"
         footer={<><Button variant="ghost" onClick={() => setConfigModal(null)}>Cancel</Button><Button onClick={saveConfig}>Save Changes</Button></>}>
@@ -105,6 +110,13 @@ export default function Compliance() {
             <Input label="JKK (%)" type="number" step="0.01" value={configData.jkk_percentage || ''} onChange={e => setConfigData({...configData, jkk_percentage: e.target.value})} />
             <Input label="JKM (%)" type="number" step="0.01" value={configData.jkm_percentage || ''} onChange={e => setConfigData({...configData, jkm_percentage: e.target.value})} />
             <Input label="Max Base Salary (Rp)" type="number" value={configData.max_base_salary || ''} onChange={e => setConfigData({...configData, max_base_salary: e.target.value})} />
+          </div>
+        )}
+        {configModal === 'pension' && (
+          <div className="config-form">
+            <Input label="Employee Contribution (%)" type="number" step="0.01" value={configData.employee_percentage || ''} onChange={e => setConfigData({...configData, employee_percentage: e.target.value})} />
+            <Input label="Employer Contribution (%)" type="number" step="0.01" value={configData.employer_percentage || ''} onChange={e => setConfigData({...configData, employer_percentage: e.target.value})} />
+            <Input label="Fund Name" type="text" value={configData.fund_name || ''} onChange={e => setConfigData({...configData, fund_name: e.target.value})} />
           </div>
         )}
         {configModal === 'tax' && (
@@ -198,14 +210,14 @@ export default function Compliance() {
         {/* Pension */}
         <Card title="Pension" subtitle="Retirement fund contributions">
           <div className="comp-details">
-            <div className="comp-row"><span>Employee Contribution</span><span>1.0%</span></div>
-            <div className="comp-row"><span>Employer Contribution</span><span>2.0%</span></div>
-            <div className="comp-row"><span>Pension Fund</span><span>DPLK</span></div>
-            <div className="comp-row"><span>Status</span><Badge variant="success">Active</Badge></div>
+            <div className="comp-row"><span>Employee Contribution</span><span>{PCT(pension?.employee_percentage) || '1.0%'}</span></div>
+            <div className="comp-row"><span>Employer Contribution</span><span>{PCT(pension?.employer_percentage) || '2.0%'}</span></div>
+            <div className="comp-row"><span>Pension Fund</span><span>{pension?.fund_name || 'DPLK'}</span></div>
+            <div className="comp-row"><span>Status</span><Badge variant={pension?.is_active ? 'success' : 'neutral'}>{pension?.is_active ? 'Active' : 'Inactive'}</Badge></div>
           </div>
           <div className="comp-actions">
-            <Button variant="ghost" size="sm"><EditIcon fontSize="small" /> Configure</Button>
-            <Button variant="ghost" size="sm" onClick={() => exportCSV([{ fund: 'DPLK', employee_pct: 1.0, employer_pct: 2.0, status: 'Active' }], 'pension.csv')}><GetAppIcon fontSize="small" /> Export</Button>
+            <Button variant="ghost" size="sm" onClick={() => openConfig('pension', pension || {})}><EditIcon fontSize="small" /> Configure</Button>
+            <Button variant="ghost" size="sm" onClick={() => exportCSV(pension ? [pension] : [], 'pension.csv')}><GetAppIcon fontSize="small" /> Export</Button>
           </div>
         </Card>
       </div>

@@ -806,6 +806,25 @@ CREATE TABLE tax_rates (
     UNIQUE KEY unique_tax_layer (year, layer_number)
 );
 
+-- Pension Configurations table
+CREATE TABLE pension_config (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    company_id INT NOT NULL,
+    year INT NOT NULL,
+    employee_percentage DECIMAL(5,2) DEFAULT 1.0,
+    employer_percentage DECIMAL(5,2) DEFAULT 2.0,
+    fund_name VARCHAR(100) DEFAULT 'DPLK',
+    min_base_salary DECIMAL(15,2),
+    max_base_salary DECIMAL(15,2),
+    is_active BOOLEAN DEFAULT TRUE,
+    effective_from DATE NOT NULL,
+    effective_to DATE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE,
+    UNIQUE KEY unique_pension_year (company_id, year)
+);
+
 -- PPh21 Calculations table
 CREATE TABLE pph21_calculations (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,

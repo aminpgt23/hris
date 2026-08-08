@@ -94,6 +94,47 @@ router.post('/bpjs-employment', authorize('Administrator', 'HR Staff'), async (r
   } catch (error) { next(error); }
 });
 
+// ===== Pension config =====
+
+router.get('/pension', authorize('Administrator', 'HR Staff'), async (req, res, next) => {
+  try {
+    const year = req.query.year || new Date().getFullYear();
+    const [rows] = await db.execute(
+      'SELECT * FROM pension_config WHERE year = ? ORDER BY effective_from DESC', [year]
+    );
+    res.json({ success: true, data: rows });
+  } catch (error) { next(error); }
+});
+
+router.post('/pension', authorize('Administrator', 'HR Staff'), async (req, res, next) => {
+  try {
+    const year = req.body.year || new Date().getFullYear();
+    const company_id = req.body.company_id || 1;
+    const employee_percentage = req.body.employee_percentage ?? 1.0;
+    const employer_percentage = req.body.employer_percentage ?? 2.0;
+    const fund_name = req.body.fund_name || 'DPLK';
+    const min_base_salary = req.body.min_base_salary ?? null;
+    const max_base_salary = req.body.max_base_salary ?? null;
+    const effective_from = req.body.effective_from || new Date().toISOString().slice(0, 10);
+
+    await db.execute(
+      `INSERT INTO pension_config
+         (company_id, year, employee_percentage, employer_percentage, fund_name, min_base_salary, max_base_salary, is_active, effective_from)
+       VALUES (?, ?, ?, ?, ?, ?, ?, TRUE, ?)
+       ON DUPLICATE KEY UPDATE
+         employee_percentage = VALUES(employee_percentage),
+         employer_percentage = VALUES(employer_percentage),
+         fund_name = VALUES(fund_name),
+         min_base_salary = VALUES(min_base_salary),
+         max_base_salary = VALUES(max_base_salary),
+         is_active = TRUE,
+         effective_from = VALUES(effective_from)`,
+      [company_id, year, employee_percentage, employer_percentage, fund_name, min_base_salary, max_base_salary, effective_from]
+    );
+    res.json({ success: true, message: `Pension config saved for ${year}` });
+  } catch (error) { next(error); }
+});
+
 // ===== Tax rates (PPh21) =====
 
 router.get('/tax-rates', authorize('Administrator', 'HR Staff', 'Finance'), async (req, res, next) => {

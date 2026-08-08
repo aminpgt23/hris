@@ -181,7 +181,7 @@ export default function PayrollCalculation() {
 
           <div className="flex gap-2" style={{ marginTop: 'var(--space-3)' }}>
             <Button variant="primary" size="sm" type="submit" loading={loading}>Calculate</Button>
-            <Button variant="ghost" size="sm" type="button" onClick={() => loadEmployee(form.employee_id)}>Reload from DB</Button>
+            <Button variant="ghost" size="sm" type="button" onClick={() => loadEmployee(form.employee_id)}>Refresh Data</Button>
           </div>
         </form>
       </Card>
@@ -220,6 +220,7 @@ export default function PayrollCalculation() {
                 : '(Pasal 17)'}</span>
               <span>{Rp(deductions.pph21)}</span>
             </div>
+            <div className="sim-line"><span>Pension (Employee)</span><span>{Rp(deductions.iuran_pensiun)}</span></div>
             <div className="sim-line"><span>Kasbon</span><span>{Rp(deductions.kasbon)}</span></div>
             <div className="sim-line"><span>Absence Deduction</span><span>{Rp(deductions.absence_deduction)}</span></div>
             <div className="sim-line sim-total">
@@ -240,6 +241,7 @@ export default function PayrollCalculation() {
             <div className="sim-line"><span>JKK ({form.jkk_rate}%)</span><span>{Rp(employer_cost.jkk)}</span></div>
             <div className="sim-line"><span>JKM (0.30%)</span><span>{Rp(employer_cost.jkm)}</span></div>
             <div className="sim-line"><span>JP (2%)</span><span>{Rp(employer_cost.jp)}</span></div>
+            <div className="sim-line"><span>Pension (Employer) {result.config?.pension_fund ? `(${result.config.pension_fund})` : ''}</span><span>{Rp(employer_cost.pension)}</span></div>
             <div className="sim-line sim-total">
               <span>Total Employer Cost</span><span>{Rp(employer_cost.total_employer_cost)}</span>
             </div>

@@ -17,10 +17,12 @@ const DEFAULT_BPJS_JHT_EMPLOYER = 0.037;
 const DEFAULT_BPJS_JKM_EMPLOYER = 0.003;
 const DEFAULT_BPJS_JP_EMPLOYER = 0.02;
 const DEFAULT_JKK_EMPLOYER = 0.0024;
+const DEFAULT_PENSION_EMPLOYEE = 0.01;
+const DEFAULT_PENSION_EMPLOYER = 0.02;
 
 // Load BPJS + tax config from Compliance tables for a year (fallback to defaults).
 async function loadComplianceConfig(year = new Date().getFullYear()) {
-  const cfg = { health: {}, employment: {}, taxLayers: null };
+  const cfg = { health: {}, employment: {}, pension: {}, taxLayers: null };
   try {
     const [health] = await db.execute(
       'SELECT * FROM bpjs_health_config WHERE year = ? AND is_active = TRUE ORDER BY effective_from DESC LIMIT 1',
@@ -32,6 +34,11 @@ async function loadComplianceConfig(year = new Date().getFullYear()) {
       [year]
     );
     if (employment[0]) cfg.employment = employment[0];
+    const [pension] = await db.execute(
+      'SELECT * FROM pension_config WHERE year = ? AND is_active = TRUE ORDER BY effective_from DESC LIMIT 1',
+      [year]
+    );
+    if (pension[0]) cfg.pension = pension[0];
     const [tax] = await db.execute(
       'SELECT min_income, max_income, tax_rate FROM tax_rates WHERE year = ? AND is_active = TRUE ORDER BY layer_number',
       [year]
@@ -155,7 +162,7 @@ router.post('/calculate', authorize('Administrator', 'HR Staff', 'Finance'), asy
     } = req.body;
 
     const cfg = await loadComplianceConfig(year);
-    const h = cfg.health, e = cfg.employment;
+    const h = cfg.health, e = cfg.employment, p = cfg.pension;
 
     const bpjs_health_employee = pct(h.employee_percentage, DEFAULT_BPJS_HEALTH_EMPLOYEE);
     const jht_employee = pct(e.jht_employee_percentage, DEFAULT_BPJS_JHT_EMPLOYEE);
@@ -165,6 +172,11 @@ router.post('/calculate', authorize('Administrator', 'HR Staff', 'Finance'), asy
     const jkm_employer = pct(e.jkm_percentage, DEFAULT_BPJS_JKM_EMPLOYER);
     const jp_employer = pct(e.jp_employer_percentage, DEFAULT_BPJS_JP_EMPLOYER);
     const jkk_employer = jkk_rate != null ? Number(jkk_rate) / PERSEN : pct(e.jkk_percentage, DEFAULT_JKK_EMPLOYER);
+    const pension_employee = pct(p.employee_percentage, DEFAULT_PENSION_EMPLOYEE);
+    const pension_employer = pct(p.employer_percentage, DEFAULT_PENSION_EMPLOYER);
+    const pension_fund = p.fund_name || 'DPLK';
+
+    const iuranPensiun = Number(iuran_pensiun_monthly) || Math.round(Number(bpjs_base || basic_salary) * pension_employee);
 
     const meal_allowance = meal_days * meal_per_day;
     const transport_allowance = transport_days * transport_per_day;
@@ -183,7 +195,7 @@ router.post('/calculate', authorize('Administrator', 'HR Staff', 'Finance'), asy
       grossMonthly: gross_income,
       taxCategory: tax_category,
       method: tax_method,
-      iuranPensiunMonthly: Number(iuran_pensiun_monthly),
+      iuranPensiunMonthly: iuranPensiun,
       progressiveBands: cfg.taxLayers ? progressiveFromDb(cfg.taxLayers) : undefined,
     });
 
@@ -197,9 +209,10 @@ router.post('/calculate', authorize('Administrator', 'HR Staff', 'Finance'), asy
     const employer_jkk = bpjs_base ? Math.round(Number(bpjs_base) * jkk_employer) : 0;
     const employer_jkm = bpjs_base ? Math.round(Number(bpjs_base) * jkm_employer) : 0;
     const employer_jp = bpjs_base ? Math.round(Number(bpjs_base) * jp_employer) : 0;
+    const employer_pension = bpjs_base ? Math.round(Number(bpjs_base) * pension_employer) : 0;
 
     const total_employer_cost =
-      employer_bpjs_health + employer_jht + employer_jkk + employer_jkm + employer_jp;
+      employer_bpjs_health + employer_jht + employer_jkk + employer_jkm + employer_jp + employer_pension;
 
     const cost_to_company = gross_income + total_employer_cost;
 
@@ -223,6 +236,7 @@ router.post('/calculate', authorize('Administrator', 'HR Staff', 'Finance'), asy
           pph21_detail: pph21,
           kasbon: Number(kasbon),
           absence_deduction: Number(absence_deduction),
+          iuran_pensiun: iuranPensiun,
           total_deduction,
         },
         take_home_pay,
@@ -232,6 +246,7 @@ router.post('/calculate', authorize('Administrator', 'HR Staff', 'Finance'), asy
           jkk: employer_jkk,
           jkm: employer_jkm,
           jp: employer_jp,
+          pension: employer_pension,
           total_employer_cost,
         },
         cost_to_company,
@@ -244,7 +259,10 @@ router.post('/calculate', authorize('Administrator', 'HR Staff', 'Finance'), asy
           jkk_employer,
           jkm_employer,
           jp_employer,
-          source: (h.employee_percentage || e.jkk_percentage || cfg.taxLayers) ? 'compliance' : 'default',
+          pension_employee,
+          pension_employer,
+          pension_fund,
+          source: (h.employee_percentage || e.jkk_percentage || p.employee_percentage || cfg.taxLayers) ? 'compliance' : 'default',
         },
       },
     });
