@@ -5,6 +5,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { ToastProvider } from './context/ToastContext';
+import { LanguageProvider } from './context/LanguageContext';
 
 // Layout
 import Sidebar from './components/layout/Sidebar';
@@ -30,6 +31,7 @@ import { Reports } from './modules/reports';
 import SystemSettings from './modules/system/SystemSettings';
 import MasterData from './modules/master-data/MasterData';
 import { Approvals } from './modules/approvals';
+import { Help } from './modules/help';
 
 // ---------- Protected Route ----------
 const ProtectedRoute = ({ children }) => {
@@ -129,6 +131,9 @@ const AppContent = () => {
       <Route path="/approvals/*" element={
         <ProtectedRoute><MainLayout><Approvals /></MainLayout></ProtectedRoute>
       } />
+      <Route path="/help" element={
+        <ProtectedRoute><MainLayout><Help /></MainLayout></ProtectedRoute>
+      } />
 
       <Route path="/" element={<Navigate to="/dashboard" replace />} />
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
@@ -140,13 +145,15 @@ const AppContent = () => {
 function App() {
   return (
     <ThemeProvider>
-      <Router>
-        <AuthProvider>
-          <ToastProvider>
-            <AppContent />
-          </ToastProvider>
-        </AuthProvider>
-      </Router>
+      <LanguageProvider>
+        <Router>
+          <AuthProvider>
+            <ToastProvider>
+              <AppContent />
+            </ToastProvider>
+          </AuthProvider>
+        </Router>
+      </LanguageProvider>
     </ThemeProvider>
   );
 }

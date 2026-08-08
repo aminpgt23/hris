@@ -54,7 +54,7 @@ export default function SystemSettings() {
     } catch {
       // Use defaults if no API
       setSettings({
-        appName: 'HRIS System',
+        appName: 'Human Resource',
         companyName: 'Corporate Entity',
         timezone: 'Asia/Jakarta',
         dateFormat: 'DD/MM/YYYY',

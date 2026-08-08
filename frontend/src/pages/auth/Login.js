@@ -1,13 +1,16 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { useLanguage } from '../../context/LanguageContext';
 import PersonIcon from '@mui/icons-material/Person';
 import LockIcon from '@mui/icons-material/Lock';
+import LanguageIcon from '@mui/icons-material/Language';
 import './Login.css';
 
 export default function Login() {
   const navigate = useNavigate();
   const { login } = useAuth();
+  const { t, toggleLang } = useLanguage();
   const [formData, setFormData] = useState({ username: '', password: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -27,7 +30,7 @@ export default function Login() {
     if (result.success) {
       navigate('/dashboard');
     } else {
-      setError(result.message || 'Login failed. Please try again.');
+      setError(result.message || t('login_failed'));
     }
     setLoading(false);
   };
@@ -40,23 +43,29 @@ export default function Login() {
     <div className="login-page">
       <div className="login-bg-shapes" />
 
+      <button type="button" className="login-lang-toggle" onClick={toggleLang}>
+        <LanguageIcon fontSize="small" />
+        <span>{t('login_lang_switch')}</span>
+      </button>
+
       <div className="login-container">
         {/* Brand Section */}
         <div className="login-brand">
-          <div className="login-logo">H</div>
-          <h1 className="login-title">HRIS System</h1>
-          <p className="login-subtitle">Enterprise System</p>
-          <p className="login-desc">
-            Complete human resource information system with integrated payroll,
-            attendance, leave, compliance, and analytics.
-          </p>
+          <img
+            src={`${process.env.PUBLIC_URL || ''}/logo.png`}
+            alt="Human Resource"
+            className="login-logo"
+          />
+          <h1 className="login-title">{t('login_title')}</h1>
+          <p className="login-subtitle">{t('login_subtitle')}</p>
+          <p className="login-desc">{t('login_desc')}</p>
         </div>
 
         {/* Form Section */}
         <div className="login-form-wrapper">
           <div className="login-form-card">
-            <h2 className="login-form-title">Sign In</h2>
-            <p className="login-form-subtitle">Enter your credentials to continue</p>
+            <h2 className="login-form-title">{t('login_signin')}</h2>
+            <p className="login-form-subtitle">{t('login_sub_signin')}</p>
 
             {error && (
               <div className="login-error">
@@ -67,7 +76,7 @@ export default function Login() {
 
             <form onSubmit={handleSubmit}>
               <div className="form-group">
-                <label className="form-label">Username or Email</label>
+                <label className="form-label">{t('login_username')}</label>
                 <div className="login-input-wrapper">
                   <span className="login-input-icon"><PersonIcon fontSize="small" /></span>
                   <input
@@ -77,14 +86,14 @@ export default function Login() {
                     onChange={handleChange}
                     required
                     className="login-input"
-                    placeholder="Enter your username"
+                    placeholder={t('login_placeholder_user')}
                     autoComplete="username"
                   />
                 </div>
               </div>
 
               <div className="form-group">
-                <label className="form-label">Password</label>
+                <label className="form-label">{t('login_password')}</label>
                 <div className="login-input-wrapper">
                   <span className="login-input-icon"><LockIcon fontSize="small" /></span>
                   <input
@@ -94,7 +103,7 @@ export default function Login() {
                     onChange={handleChange}
                     required
                     className="login-input"
-                    placeholder="Enter your password"
+                    placeholder={t('login_placeholder_pass')}
                     autoComplete="current-password"
                   />
                 </div>
@@ -106,9 +115,9 @@ export default function Login() {
                 disabled={loading}
               >
                 {loading ? (
-                  <><span className="login-spinner" /> Signing in...</>
+                  <><span className="login-spinner" /> {t('login_signing_in')}</>
                 ) : (
-                  'Sign In'
+                  t('login_signin')
                 )}
               </button>
             </form>
@@ -120,7 +129,7 @@ export default function Login() {
                 className="login-demo-btn"
                 onClick={() => setShowDemo(!showDemo)}
               >
-                {showDemo ? 'Hide' : 'Show'} Demo Credentials
+                {showDemo ? t('login_demo_hide') : t('login_demo_show')} {t('login_demo')}
               </button>
 
               {showDemo && (
@@ -149,7 +158,7 @@ export default function Login() {
           </div>
 
           <p className="login-footer-text">
-            &copy; {new Date().getFullYear()} HRIS System. All rights reserved.
+            {t('login_copyright').replace('{year}', new Date().getFullYear())}
           </p>
         </div>
       </div>

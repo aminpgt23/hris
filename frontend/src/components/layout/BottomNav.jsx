@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { useLanguage } from '../../context/LanguageContext';
 import DashboardIcon from '@mui/icons-material/Dashboard';
 import PeopleIcon from '@mui/icons-material/People';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
@@ -64,6 +65,7 @@ export default function BottomNav() {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, isAuthenticated } = useAuth();
+  const { t } = useLanguage();
 
   const navItems = useMemo(() => {
     return roleBottomNav[user?.roleName] || defaultNav;
@@ -82,7 +84,7 @@ export default function BottomNav() {
             onClick={() => navigate(item.path)}
           >
             <Icon fontSize="small" className="bottom-nav-icon" />
-            <span className="bottom-nav-label">{item.label}</span>
+            <span className="bottom-nav-label">{t(item.label)}</span>
           </button>
         );
       })}

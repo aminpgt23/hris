@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { useLanguage } from '../../context/LanguageContext';
 import DashboardIcon from '@mui/icons-material/Dashboard';
 import StorageIcon from '@mui/icons-material/Storage';
 import PeopleIcon from '@mui/icons-material/People';
@@ -111,6 +112,7 @@ const SidebarIcon = ({ label }) => {
 
 export default function Sidebar({ collapsed, onToggle, mobileView }) {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -126,10 +128,12 @@ export default function Sidebar({ collapsed, onToggle, mobileView }) {
   return (
     <aside className={`sidebar ${collapsed ? 'sidebar-collapsed' : ''} ${mobileView ? 'sidebar-mobile' : ''}`}>
       <div className="sidebar-brand">
-        <div className="sidebar-logo">
-          {collapsed ? 'H' : 'HR'}
-        </div>
-        {!collapsed && <span className="sidebar-brand-text">System</span>}
+        <img
+          src={`${process.env.PUBLIC_URL || ''}/logo.png`}
+          alt="Human Resource"
+          className="sidebar-logo"
+        />
+        {!collapsed && <span className="sidebar-brand-text">{t('app_name')}</span>}
       </div>
 
       <nav className="sidebar-nav">
@@ -138,12 +142,12 @@ export default function Sidebar({ collapsed, onToggle, mobileView }) {
             key={item.path}
             className={`sidebar-link ${isActive(item.path) ? 'active' : ''}`}
             onClick={() => navigate(item.path)}
-            title={item.label}
+            title={t(item.label)}
           >
             <span className="sidebar-icon">
               <SidebarIcon label={item.label} />
             </span>
-            {!collapsed && <span className="sidebar-label">{item.label}</span>}
+            {!collapsed && <span className="sidebar-label">{t(item.label)}</span>}
           </button>
         ))}
       </nav>

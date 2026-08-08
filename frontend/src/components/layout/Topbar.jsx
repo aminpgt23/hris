@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
+import { useLanguage } from '../../context/LanguageContext';
 import SearchIcon from '@mui/icons-material/Search';
 import DarkModeIcon from '@mui/icons-material/DarkMode';
 import LightModeIcon from '@mui/icons-material/LightMode';
@@ -10,6 +11,7 @@ import LogoutIcon from '@mui/icons-material/Logout';
 import PersonIcon from '@mui/icons-material/Person';
 import SettingsIcon from '@mui/icons-material/Settings';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
+import LanguageIcon from '@mui/icons-material/Language';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import { employeeAPI } from '../../services/api';
 import './Topbar.css';
@@ -17,6 +19,7 @@ import './Topbar.css';
 export default function Topbar() {
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
+  const { t, lang, toggleLang } = useLanguage();
   const navigate = useNavigate();
 
   // Profile dropdown state
@@ -127,10 +130,10 @@ export default function Topbar() {
 
   // Mock notifications data
   const notifications = [
-    { id: 1, title: 'Leave Request', message: 'John Doe submitted a leave request', time: '5m ago', unread: true, type: 'leave' },
-    { id: 2, title: 'Payroll', message: 'Payroll for June is ready for approval', time: '1h ago', unread: true, type: 'payroll' },
-    { id: 3, title: 'Attendance', message: '3 employees have not checked in today', time: '3h ago', unread: false, type: 'attendance' },
-    { id: 4, title: 'Training', message: 'New training session scheduled', time: '1d ago', unread: false, type: 'training' },
+    { id: 1, titleKey: 'notif_leave_req', messageKey: 'notif_leave_msg', time: '5m ago', unread: true, type: 'leave' },
+    { id: 2, titleKey: 'notif_payroll', messageKey: 'notif_payroll_msg', time: '1h ago', unread: true, type: 'payroll' },
+    { id: 3, titleKey: 'notif_attendance', messageKey: 'notif_attendance_msg', time: '3h ago', unread: false, type: 'attendance' },
+    { id: 4, titleKey: 'notif_training', messageKey: 'notif_training_msg', time: '1d ago', unread: false, type: 'training' },
   ];
 
   const unreadCount = notifications.filter(n => n.unread).length;
@@ -161,7 +164,7 @@ export default function Topbar() {
             ref={inputRef}
             type="text"
             className="search-input"
-            placeholder="Search employees..."
+            placeholder={t('topbar_search')}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             onFocus={() => { if (searchResults.length > 0) setSearchOpen(true); }}
@@ -173,16 +176,18 @@ export default function Topbar() {
           {searchOpen && (
             <div className="search-dropdown">
               {searchLoading ? (
-                <div className="search-dropdown-loading">Searching...</div>
+                <div className="search-dropdown-loading">{t('topbar_searching')}</div>
               ) : searchResults.length === 0 ? (
                 <div className="search-dropdown-empty">
-                  {searchQuery ? 'No employees found' : 'Type to search employees'}
+                  {searchQuery ? t('topbar_no_employees') : t('topbar_type_search')}
                 </div>
               ) : (
                 <>
                   <div className="search-dropdown-header">
-                    <span className="search-dropdown-title">Employees</span>
-                    <span className="search-dropdown-count">{searchResults.length} found</span>
+                    <span className="search-dropdown-title">{t('topbar_employees')}</span>
+                    <span className="search-dropdown-count">
+                      {t('topbar_found').replace('{count}', searchResults.length)}
+                    </span>
                   </div>
                   <div className="search-dropdown-body">
                     {searchResults.map((emp, idx) => (
@@ -219,8 +224,18 @@ export default function Topbar() {
       </div>
 
       <div className="topbar-right">
+        {/* Language Toggle */}
+        <button
+          className="topbar-icon-btn topbar-lang-btn"
+          onClick={toggleLang}
+          title={lang === 'id' ? 'Switch to English' : 'Ganti ke Bahasa Indonesia'}
+        >
+          <LanguageIcon fontSize="small" />
+          <span className="topbar-lang-label">{t('topbar_lang')}</span>
+        </button>
+
         {/* Theme Toggle */}
-        <button className="topbar-icon-btn" onClick={toggleTheme} title="Toggle theme">
+        <button className="topbar-icon-btn" onClick={toggleTheme} title={t('topbar_toggle_theme')}>
           {theme === 'light' ? <DarkModeIcon fontSize="small" /> : <LightModeIcon fontSize="small" />}
         </button>
 
@@ -229,7 +244,7 @@ export default function Topbar() {
           <button
             className="topbar-icon-btn"
             onClick={() => { setNotifOpen(!notifOpen); setProfileOpen(false); }}
-            title="Notifications"
+            title={t('topbar_notifications')}
           >
             <NotificationsIcon fontSize="small" />
             {unreadCount > 0 && <span className="notification-dot" />}
@@ -238,8 +253,8 @@ export default function Topbar() {
           {notifOpen && (
             <div className="topbar-dropdown notif-dropdown">
               <div className="dropdown-header">
-                <span className="dropdown-title">Notifications</span>
-                <span className="dropdown-badge">{unreadCount} new</span>
+                <span className="dropdown-title">{t('topbar_notifications')}</span>
+                <span className="dropdown-badge">{t('topbar_new').replace('{count}', unreadCount)}</span>
               </div>
               <div className="dropdown-body">
                 {notifications.map(n => (
@@ -249,15 +264,15 @@ export default function Topbar() {
                     onClick={() => handleNotificationClick(n)}
                   >
                     <div className="notif-content">
-                      <span className="notif-title">{n.title}</span>
-                      <span className="notif-message">{n.message}</span>
+                      <span className="notif-title">{t(n.titleKey)}</span>
+                      <span className="notif-message">{t(n.messageKey)}</span>
                     </div>
                     <span className="notif-time">{n.time}</span>
                   </div>
                 ))}
               </div>
               <div className="dropdown-footer" onClick={() => { setNotifOpen(false); navigate('/notifications'); }}>
-                View all notifications
+                {t('topbar_view_all')}
               </div>
             </div>
           )}
@@ -293,20 +308,20 @@ export default function Topbar() {
               <div className="dropdown-divider" />
               <div className="dropdown-item" onClick={() => handleProfileAction('profile')}>
                 <PersonIcon fontSize="small" />
-                <span>My Profile</span>
+                <span>{t('topbar_my_profile')}</span>
               </div>
               <div className="dropdown-item" onClick={() => handleProfileAction('settings')}>
                 <SettingsIcon fontSize="small" />
-                <span>Settings</span>
+                <span>{t('topbar_settings')}</span>
               </div>
-              <div className="dropdown-item" onClick={() => { setProfileOpen(false); }}>
+              <div className="dropdown-item" onClick={() => { setProfileOpen(false); navigate('/help'); }}>
                 <HelpOutlineIcon fontSize="small" />
-                <span>Help</span>
+                <span>{t('topbar_help')}</span>
               </div>
               <div className="dropdown-divider" />
               <div className="dropdown-item logout-item" onClick={() => handleProfileAction('logout')}>
                 <LogoutIcon fontSize="small" />
-                <span>Logout</span>
+                <span>{t('topbar_logout')}</span>
               </div>
             </div>
           )}
