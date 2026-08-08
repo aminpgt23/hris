@@ -4,16 +4,29 @@ import './FaceCaptureModal.css';
 
 const FACE_API_CDN = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.15/dist/face-api.js';
 const MODEL_URL = `${process.env.PUBLIC_URL || ''}/models/tiny_face_detector`;
+const DETECT_TIMEOUT_MS = 8000;
 
+// Load face-api from CDN once, retrying if a previous attempt left a broken script tag.
 function loadScript(src) {
   return new Promise((resolve, reject) => {
     const existing = document.querySelector('script[data-face-api]');
-    if (existing) return resolve(existing.dataset.ready ? window.faceapi : undefined);
+    if (existing) {
+      if (existing.dataset.ready) return resolve(window.faceapi);
+      // Stale tag from a failed/aborted load — remove and start fresh.
+      existing.remove();
+    }
     const script = document.createElement('script');
     script.src = src;
     script.dataset.faceApi = '1';
-    script.onload = () => { script.dataset.ready = '1'; resolve(window.faceapi); };
-    script.onerror = () => reject(new Error('Failed to load face-api script'));
+    script.onload = () => {
+      if (!window.faceapi) {
+        reject(new Error('face-api loaded but global is missing'));
+        return;
+      }
+      script.dataset.ready = '1';
+      resolve(window.faceapi);
+    };
+    script.onerror = () => reject(new Error('Failed to load face-api script (network/CSP blocked?)'));
     document.head.appendChild(script);
   });
 }
@@ -21,14 +34,20 @@ function loadScript(src) {
 export default function FaceCaptureModal({ open, onClose, onSubmit, submitting }) {
   const videoRef = useRef(null);
   const streamRef = useRef(null);
+  const detectRafRef = useRef(null);
   const [faceDetected, setFaceDetected] = useState(false);
   const [modelLoaded, setModelLoaded] = useState(false);
   const [modelError, setModelError] = useState('');
+  const [detectTimedOut, setDetectTimedOut] = useState(false);
   const [captured, setCaptured] = useState(null);
   const [location, setLocation] = useState(null);
   const [geoError, setGeoError] = useState('');
 
   const stopCamera = useCallback(() => {
+    if (detectRafRef.current) {
+      cancelAnimationFrame(detectRafRef.current);
+      detectRafRef.current = null;
+    }
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(t => t.stop());
       streamRef.current = null;
@@ -54,10 +73,11 @@ export default function FaceCaptureModal({ open, onClose, onSubmit, submitting }
   const initFaceApi = useCallback(async () => {
     try {
       const faceapi = await loadScript(FACE_API_CDN);
-      if (!faceapi) return;
+      if (!faceapi) throw new Error('face-api not available');
       await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
       setModelLoaded(true);
-    } catch {
+    } catch (e) {
+      // Detection is advisory only — selfie photo is still the proof.
       setModelError('Face detection unavailable - proceeding with selfie only.');
     }
   }, []);
@@ -69,23 +89,46 @@ export default function FaceCaptureModal({ open, onClose, onSubmit, submitting }
     return () => stopCamera();
   }, [open, initFaceApi, startCamera, stopCamera]);
 
+  // Detection loop — must never die. Guards video readiness, catches every error,
+  // and always reschedules itself until captured.
   const detectLoop = useCallback(async () => {
-    if (!videoRef.current || !modelLoaded) return;
+    detectRafRef.current = null;
+    const video = videoRef.current;
+    if (!video || video.readyState < 2 || video.videoWidth === 0) {
+      detectRafRef.current = requestAnimationFrame(detectLoop);
+      return;
+    }
     const faceapi = window.faceapi;
-    if (!faceapi) return;
-    const detections = await faceapi
-      .detectAllFaces(videoRef.current, new faceapi.TinyFaceDetectorOptions({ inputSize: 320 }))
-      .catch(() => []);
-    setFaceDetected(detections.length > 0);
-    if (!captured) requestAnimationFrame(detectLoop);
+    if (!faceapi || !modelLoaded) {
+      detectRafRef.current = requestAnimationFrame(detectLoop);
+      return;
+    }
+    try {
+      const detections = await faceapi.detectAllFaces(
+        video,
+        new faceapi.TinyFaceDetectorOptions({ inputSize: 320 })
+      );
+      setFaceDetected(detections.length > 0);
+    } catch {
+      // Model/backend hiccup — keep trying, detection is advisory.
+    } finally {
+      if (!captured) detectRafRef.current = requestAnimationFrame(detectLoop);
+    }
   }, [modelLoaded, captured]);
 
   useEffect(() => {
-    if (open && modelLoaded) {
-      const id = requestAnimationFrame(detectLoop);
-      return () => cancelAnimationFrame(id);
-    }
-  }, [open, modelLoaded, detectLoop]);
+    if (!open || !modelLoaded) return;
+    setDetectTimedOut(false);
+    detectRafRef.current = requestAnimationFrame(detectLoop);
+    const timer = setTimeout(() => {
+      // No face found in time — fall back to selfie-only instead of blocking.
+      if (!captured && !faceDetected) setDetectTimedOut(true);
+    }, DETECT_TIMEOUT_MS);
+    return () => {
+      cancelAnimationFrame(detectRafRef.current);
+      clearTimeout(timer);
+    };
+  }, [open, modelLoaded, detectLoop, captured, faceDetected]);
 
   const getLocation = () => {
     if (!navigator.geolocation) {
@@ -118,6 +161,7 @@ export default function FaceCaptureModal({ open, onClose, onSubmit, submitting }
   const handleRetake = () => {
     setCaptured(null);
     setFaceDetected(false);
+    setDetectTimedOut(false);
     startCamera();
   };
 
@@ -135,6 +179,7 @@ export default function FaceCaptureModal({ open, onClose, onSubmit, submitting }
     stopCamera();
     setCaptured(null);
     setFaceDetected(false);
+    setDetectTimedOut(false);
     setGeoError('');
     onClose();
   };
@@ -145,10 +190,12 @@ export default function FaceCaptureModal({ open, onClose, onSubmit, submitting }
         {captured ? (
           <div className="face-preview">
             <img src={captured} alt="Captured face" />
-            {faceDetected && (
+            {faceDetected ? (
               <p className="face-verified">
                 <span className="face-verified-dot" /> Face detected - ready to submit
               </p>
+            ) : (
+              <p className="face-geo">Selfie captured - you can submit below</p>
             )}
           </div>
         ) : (
@@ -163,6 +210,9 @@ export default function FaceCaptureModal({ open, onClose, onSubmit, submitting }
         )}
 
         {modelError && <p className="face-error">{modelError}</p>}
+        {detectTimedOut && !captured && (
+          <p className="face-error">Face not detected yet - you can still capture and submit your selfie.</p>
+        )}
         {geoError && <p className="face-geo">{geoError}</p>}
         {location && !geoError && (
           <p className="face-geo ok">GPS: {location.lat.toFixed(6)}, {location.lng.toFixed(6)}</p>
@@ -172,7 +222,7 @@ export default function FaceCaptureModal({ open, onClose, onSubmit, submitting }
           {captured ? (
             <>
               <Button variant="ghost" size="sm" onClick={handleRetake}>Retake</Button>
-              <Button variant="primary" size="sm" onClick={handleSubmit} loading={submitting} disabled={!faceDetected && !modelError}>
+              <Button variant="primary" size="sm" onClick={handleSubmit} loading={submitting}>
                 Submit Check-in
               </Button>
             </>
