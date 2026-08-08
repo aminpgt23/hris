@@ -42,7 +42,7 @@ router.get('/calculation-inputs/:employeeId', authorize('Administrator', 'HR Sta
 
     const [emp] = await db.execute(
       `SELECT e.id, CONCAT(e.first_name, ' ', e.last_name) as employee_name, e.position_id,
-              p.title as position_title
+              p.name as position_title
        FROM employees e
        LEFT JOIN positions p ON e.position_id = p.id
        WHERE e.id = ? AND e.is_active = TRUE`,
@@ -282,7 +282,7 @@ router.post('/assignments', authorize('Administrator', 'HR Staff'), async (req, 
     const [result] = await db.execute(
       `INSERT INTO employee_salary_assignments (employee_id, basic_salary, fixed_allowances, fixed_deductions, tax_category, bpjs_health_percentage, bpjs_employment_percentage, pension_percentage, is_eligible_payroll, bank_transfer, effective_from, created_by)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [employee_id, basic_salary, fixed_allowances ? JSON.stringify(fixed_allowances) : null, fixed_deductions ? JSON.stringify(fixed_deductions) : null, tax_category || 'TK0', bpjs_health_percentage ?? 1.00, bpjs_employment_percentage ?? 2.00, pension_percentage ?? 1.00, is_eligible_payroll ?? 1, bank_transfer ?? 1, effective_from, req.user.userId]
+      [employee_id, basic_salary, fixed_allowances ? JSON.stringify(fixed_allowances) : null, fixed_deductions ? JSON.stringify(fixed_deductions) : null, tax_category || 'TK0', bpjs_health_percentage ?? 1.00, bpjs_employment_percentage ?? 2.00, pension_percentage ?? 1.00, is_eligible_payroll ?? 1, bank_transfer ?? 1, effective_from, req.user.id]
     );
     res.status(201).json({ success: true, message: 'Salary assignment created', data: { id: result.insertId } });
   } catch (error) { next(error); }

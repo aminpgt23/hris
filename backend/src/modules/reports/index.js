@@ -332,7 +332,7 @@ router.get('/saved', authorize('Administrator', 'HR Staff', 'Manager', 'Finance'
   try {
     const [rows] = await db.execute(
       'SELECT * FROM saved_reports WHERE created_by = ? ORDER BY created_at DESC',
-      [req.user.userId]
+      [req.user.id]
     );
     res.json({ success: true, data: rows });
   } catch (error) {
@@ -347,7 +347,7 @@ router.post('/saved', authorize('Administrator', 'HR Staff', 'Manager', 'Finance
     if (!name || !type) return res.status(400).json({ success: false, message: 'Required: name, type' });
     const [result] = await db.execute(
       'INSERT INTO saved_reports (name, type, parameters, created_by) VALUES (?, ?, ?, ?)',
-      [name, type, parameters ? JSON.stringify(parameters) : null, req.user.userId]
+      [name, type, parameters ? JSON.stringify(parameters) : null, req.user.id]
     );
     res.status(201).json({ success: true, message: 'Report saved', data: { id: result.insertId } });
   } catch (error) {
@@ -357,7 +357,7 @@ router.post('/saved', authorize('Administrator', 'HR Staff', 'Manager', 'Finance
 
 router.delete('/saved/:id', authorize('Administrator', 'HR Staff'), async (req, res, next) => {
   try {
-    await db.execute('DELETE FROM saved_reports WHERE id = ? AND created_by = ?', [req.params.id, req.user.userId]);
+    await db.execute('DELETE FROM saved_reports WHERE id = ? AND created_by = ?', [req.params.id, req.user.id]);
     res.json({ success: true, message: 'Saved report deleted' });
   } catch { res.json({ success: true }); }
 });

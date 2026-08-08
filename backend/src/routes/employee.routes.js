@@ -14,7 +14,7 @@ router.get('/', authorize('Administrator', 'HR Staff', 'Manager'), async (req, r
     if (status) { where += ' AND e.employment_status = ?'; params.push(status); }
     if (search) { where += ' AND (e.first_name LIKE ? OR e.last_name LIKE ? OR e.employee_number LIKE ?)'; const s = `%${search}%`; params.push(s, s, s); }
     const [rows] = await db.execute(
-      `SELECT e.*, d.name as department_name, p.title as position_title, g.name as grade_name,
+      `SELECT e.*, d.name as department_name, p.name as position_title, g.name as grade_name,
               CONCAT(e.first_name, ' ', e.last_name) as full_name,
               sup.first_name as supervisor_first_name, sup.last_name as supervisor_last_name
        FROM employees e
@@ -32,7 +32,7 @@ router.get('/', authorize('Administrator', 'HR Staff', 'Manager'), async (req, r
 router.get('/:id', authorize('Administrator', 'HR Staff', 'Manager', 'Employee'), async (req, res, next) => {
   try {
     const [rows] = await db.execute(
-      `SELECT e.*, d.name as department_name, p.title as position_title,
+      `SELECT e.*, d.name as department_name, p.name as position_title,
               CONCAT(e.first_name, ' ', e.last_name) as full_name
        FROM employees e
        LEFT JOIN departments d ON e.department_id = d.id
