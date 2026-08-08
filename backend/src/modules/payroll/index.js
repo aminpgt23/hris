@@ -2,8 +2,203 @@ const express = require('express');
 const router = express.Router();
 const { authMiddleware, authorize } = require('../../middleware/auth');
 const db = require('../../config/database');
+const { calculatePph21 } = require('./pph21');
 
 router.use(authMiddleware);
+
+// ===== Payroll Calculation (PPH21) =====
+
+const PERSEN = 100;
+const BPJS_HEALTH_EMPLOYEE = 0.01;
+const BPJS_JHT_EMPLOYEE = 0.02;
+const BPJS_JP_EMPLOYEE = 0.01;
+const BPJS_HEALTH_EMPLOYER = 0.04;
+const BPJS_JHT_EMPLOYER = 0.037;
+const BPJS_JKM_EMPLOYER = 0.003;
+const BPJS_JP_EMPLOYER = 0.02;
+
+function parseFixedComponents(json) {
+  if (!json) return {};
+  try {
+    const parsed = typeof json === 'string' ? JSON.parse(json) : json;
+    if (Array.isArray(parsed)) {
+      return parsed.reduce((acc, item) => {
+        if (item && item.code) acc[item.code] = Number(item.amount || item.value || 0);
+        return acc;
+      }, {});
+    }
+    if (parsed && typeof parsed === 'object') {
+      const out = {};
+      for (const [k, v] of Object.entries(parsed)) out[k] = Number(v || 0);
+      return out;
+    }
+    return {};
+  } catch { return {}; }
+}
+
+router.get('/calculation-inputs/:employeeId', authorize('Administrator', 'HR Staff', 'Finance'), async (req, res, next) => {
+  try {
+    const employeeId = req.params.employeeId;
+
+    const [emp] = await db.execute(
+      `SELECT e.id, CONCAT(e.first_name, ' ', e.last_name) as employee_name, e.position_id,
+              p.title as position_title
+       FROM employees e
+       LEFT JOIN positions p ON e.position_id = p.id
+       WHERE e.id = ? AND e.is_active = TRUE`,
+      [employeeId]
+    );
+    if (!emp.length) return res.status(404).json({ success: false, message: 'Employee not found' });
+
+    const [assign] = await db.execute(
+      `SELECT basic_salary, fixed_allowances, fixed_deductions, tax_category,
+              bpjs_health_percentage, bpjs_employment_percentage, pension_percentage
+       FROM employee_salary_assignments
+       WHERE employee_id = ? AND (effective_to IS NULL OR effective_to >= CURDATE())
+       ORDER BY effective_from DESC LIMIT 1`,
+      [employeeId]
+    );
+
+    const [att] = await db.execute(
+      `SELECT
+         COUNT(*) as total_days,
+         SUM(CASE WHEN status IN ('Present','Late','Half Day','Work From Home','On Duty') THEN 1 ELSE 0 END) as working_days,
+         SUM(CASE WHEN status = 'Late' THEN 1 ELSE 0 END) as late_days,
+         SUM(CASE WHEN status = 'Absent' THEN 1 ELSE 0 END) as absent_days,
+         COALESCE(SUM(overtime_hours),0) as overtime_hours
+       FROM attendance_records
+       WHERE employee_id = ?
+         AND DATE_FORMAT(date, '%Y-%m') = DATE_FORMAT(CURDATE(), '%Y-%m')`,
+      [employeeId]
+    );
+
+    const attRow = att[0] || {};
+    const fixedAllow = assign.length ? parseFixedComponents(assign[0].fixed_allowances) : {};
+    const fixedDeduc = assign.length ? parseFixedComponents(assign[0].fixed_deductions) : {};
+    const basicSalary = assign.length ? Number(assign[0].basic_salary) : 0;
+
+    res.json({
+      success: true,
+      data: {
+        employee_id: emp[0].id,
+        employee_name: emp[0].employee_name,
+        position: emp[0].position_title || null,
+        tax_category: assign.length ? assign[0].tax_category : 'TK0',
+        basic_salary: basicSalary,
+        position_allowance: fixedAllow.position_allowance || 0,
+        meal_per_day: fixedAllow.meal_per_day || 0,
+        transport_per_day: fixedAllow.transport_per_day || 0,
+        overtime: Math.round(Number(attRow.overtime_hours || 0) * 25000),
+        bonus: 0,
+        bpjs_base: basicSalary,
+        kasbon: fixedDeduc.kasbon || 0,
+        absence_deduction: 0,
+        iuran_pensiun_monthly: assign.length ? Math.round(basicSalary * (Number(assign[0].pension_percentage || 1) / PERSEN)) : 0,
+        jkk_rate: 0.54,
+        attendance: {
+          working_days: Number(attRow.working_days || 0),
+          late_days: Number(attRow.late_days || 0),
+          absent_days: Number(attRow.absent_days || 0),
+          overtime_hours: Number(attRow.overtime_hours || 0),
+        },
+        has_assignment: assign.length > 0,
+      },
+    });
+  } catch (error) { next(error); }
+});
+
+router.post('/calculate', authorize('Administrator', 'HR Staff', 'Finance'), async (req, res, next) => {
+  try {
+    const {
+      basic_salary = 0,
+      position_allowance = 0,
+      meal_days = 0,
+      meal_per_day = 0,
+      transport_days = 0,
+      transport_per_day = 0,
+      overtime = 0,
+      bonus = 0,
+      bpjs_base = 0,
+      kasbon = 0,
+      absence_deduction = 0,
+      tax_category = 'TK0',
+      tax_method = 'TER',
+      iuran_pensiun_monthly = 0,
+      jkk_rate = 0.54,
+    } = req.body;
+
+    const meal_allowance = meal_days * meal_per_day;
+    const transport_allowance = transport_days * transport_per_day;
+    const gross_income =
+      Number(basic_salary) +
+      Number(position_allowance) +
+      meal_allowance +
+      transport_allowance +
+      Number(overtime) +
+      Number(bonus);
+
+    const bpjs_health = bpjs_base ? Math.round(Number(bpjs_base) * BPJS_HEALTH_EMPLOYEE) : 0;
+    const jht = bpjs_base ? Math.round(Number(bpjs_base) * BPJS_JHT_EMPLOYEE) : 0;
+    const jp = bpjs_base ? Math.round(Number(bpjs_base) * BPJS_JP_EMPLOYEE) : 0;
+    const pph21 = calculatePph21({
+      grossMonthly: gross_income,
+      taxCategory: tax_category,
+      method: tax_method,
+      iuranPensiunMonthly: Number(iuran_pensiun_monthly),
+    });
+
+    const total_deduction =
+      bpjs_health + jht + jp + pph21.amount + Number(kasbon) + Number(absence_deduction);
+
+    const take_home_pay = gross_income - total_deduction;
+
+    const employer_bpjs_health = bpjs_base ? Math.round(Number(bpjs_base) * BPJS_HEALTH_EMPLOYER) : 0;
+    const employer_jht = bpjs_base ? Math.round(Number(bpjs_base) * BPJS_JHT_EMPLOYER) : 0;
+    const employer_jkk = bpjs_base ? Math.round(Number(bpjs_base) * (Number(jkk_rate) / PERSEN)) : 0;
+    const employer_jkm = bpjs_base ? Math.round(Number(bpjs_base) * BPJS_JKM_EMPLOYER) : 0;
+    const employer_jp = bpjs_base ? Math.round(Number(bpjs_base) * BPJS_JP_EMPLOYER) : 0;
+
+    const total_employer_cost =
+      employer_bpjs_health + employer_jht + employer_jkk + employer_jkm + employer_jp;
+
+    const cost_to_company = gross_income + total_employer_cost;
+
+    res.json({
+      success: true,
+      data: {
+        income: {
+          basic_salary: Number(basic_salary),
+          position_allowance: Number(position_allowance),
+          meal_allowance,
+          transport_allowance,
+          overtime: Number(overtime),
+          bonus: Number(bonus),
+          gross_income,
+        },
+        deductions: {
+          bpjs_health,
+          jht,
+          jp,
+          pph21: pph21.amount,
+          pph21_detail: pph21,
+          kasbon: Number(kasbon),
+          absence_deduction: Number(absence_deduction),
+          total_deduction,
+        },
+        take_home_pay,
+        employer_cost: {
+          bpjs_health: employer_bpjs_health,
+          jht: employer_jht,
+          jkk: employer_jkk,
+          jkm: employer_jkm,
+          jp: employer_jp,
+          total_employer_cost,
+        },
+        cost_to_company,
+      },
+    });
+  } catch (error) { next(error); }
+});
 
 // ===== Salary Components CRUD =====
 
