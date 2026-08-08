@@ -50,8 +50,26 @@ export default function Compliance() {
   };
 
   const saveConfig = async () => {
-    toast.success('Configuration saved successfully');
-    setConfigModal(null);
+    try {
+      if (configModal === 'health') {
+        await api.post('/compliance/bpjs-health', { ...configData, year });
+      } else if (configModal === 'employment') {
+        await api.post('/compliance/bpjs-employment', { ...configData, year });
+      } else if (configModal === 'tax') {
+        const layers = taxRates.map((tr, i) => ({
+          layer_number: tr.layer_number || i + 1,
+          min_income: tr.min_income ?? 0,
+          max_income: tr.max_income,
+          tax_rate: tr.tax_rate,
+        }));
+        await api.post('/compliance/tax-rates', { year, layers });
+      }
+      toast.success('Configuration saved successfully');
+      setConfigModal(null);
+      loadData();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to save configuration');
+    }
   };
 
   const exportCSV = (rows, filename) => {
@@ -91,10 +109,16 @@ export default function Compliance() {
         )}
         {configModal === 'tax' && (
           <div className="config-form">
-            {taxRates.length === 0 && <p className="text-muted">No tax rates configured for {year}. Add rates via the tax-rates API.</p>}
+            {taxRates.length === 0 && <p className="text-muted">No tax rates configured for {year}. Add rates below.</p>}
             {taxRates.map((tr, i) => (
               <div key={tr.id || i} className="config-row">
-                <Input label={`Layer ${tr.layer_number} - Up to Rp ${NF(tr.max_annual_income)}`} type="number" step="0.01" value={tr.rate_percentage || ''} disabled />
+                <Input label={`Layer ${tr.layer_number || i + 1} - Up to Rp ${NF(tr.max_income)}`} type="number" step="0.01"
+                  value={tr.tax_rate || ''}
+                  onChange={e => {
+                    const next = [...taxRates];
+                    next[i] = { ...next[i], tax_rate: Number(e.target.value) };
+                    setTaxRates(next);
+                  }} />
               </div>
             ))}
           </div>
@@ -161,7 +185,7 @@ export default function Compliance() {
             {taxRates.slice(0, 4).map((tr, i) => (
               <div className="comp-row" key={tr.id || i}>
                 <span>Layer {tr.layer_number}</span>
-                <span>Up to Rp {NF(tr.max_annual_income)} — {PCT(tr.rate_percentage)}</span>
+                <span>Up to Rp {NF(tr.max_income)} — {PCT(tr.tax_rate)}</span>
               </div>
             ))}
           </div>

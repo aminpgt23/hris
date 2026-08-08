@@ -2,20 +2,46 @@ const express = require('express');
 const router = express.Router();
 const { authMiddleware, authorize } = require('../../middleware/auth');
 const db = require('../../config/database');
-const { calculatePph21 } = require('./pph21');
+const { calculatePph21, progressiveFromDb } = require('./pph21');
 
 router.use(authMiddleware);
 
 // ===== Payroll Calculation (PPH21) =====
 
 const PERSEN = 100;
-const BPJS_HEALTH_EMPLOYEE = 0.01;
-const BPJS_JHT_EMPLOYEE = 0.02;
-const BPJS_JP_EMPLOYEE = 0.01;
-const BPJS_HEALTH_EMPLOYER = 0.04;
-const BPJS_JHT_EMPLOYER = 0.037;
-const BPJS_JKM_EMPLOYER = 0.003;
-const BPJS_JP_EMPLOYER = 0.02;
+const DEFAULT_BPJS_HEALTH_EMPLOYEE = 0.01;
+const DEFAULT_BPJS_JHT_EMPLOYEE = 0.02;
+const DEFAULT_BPJS_JP_EMPLOYEE = 0.01;
+const DEFAULT_BPJS_HEALTH_EMPLOYER = 0.04;
+const DEFAULT_BPJS_JHT_EMPLOYER = 0.037;
+const DEFAULT_BPJS_JKM_EMPLOYER = 0.003;
+const DEFAULT_BPJS_JP_EMPLOYER = 0.02;
+const DEFAULT_JKK_EMPLOYER = 0.0024;
+
+// Load BPJS + tax config from Compliance tables for a year (fallback to defaults).
+async function loadComplianceConfig(year = new Date().getFullYear()) {
+  const cfg = { health: {}, employment: {}, taxLayers: null };
+  try {
+    const [health] = await db.execute(
+      'SELECT * FROM bpjs_health_config WHERE year = ? AND is_active = TRUE ORDER BY effective_from DESC LIMIT 1',
+      [year]
+    );
+    if (health[0]) cfg.health = health[0];
+    const [employment] = await db.execute(
+      'SELECT * FROM bpjs_employment_config WHERE year = ? AND is_active = TRUE ORDER BY effective_from DESC LIMIT 1',
+      [year]
+    );
+    if (employment[0]) cfg.employment = employment[0];
+    const [tax] = await db.execute(
+      'SELECT min_income, max_income, tax_rate FROM tax_rates WHERE year = ? AND is_active = TRUE ORDER BY layer_number',
+      [year]
+    );
+    if (tax.length) cfg.taxLayers = tax;
+  } catch { /* keep defaults */ }
+  return cfg;
+}
+
+const pct = (v, fallback) => (v != null && !isNaN(Number(v))) ? Number(v) / PERSEN : fallback;
 
 function parseFixedComponents(json) {
   if (!json) return {};
@@ -124,8 +150,21 @@ router.post('/calculate', authorize('Administrator', 'HR Staff', 'Finance'), asy
       tax_category = 'TK0',
       tax_method = 'TER',
       iuran_pensiun_monthly = 0,
-      jkk_rate = 0.54,
+      jkk_rate,
+      year,
     } = req.body;
+
+    const cfg = await loadComplianceConfig(year);
+    const h = cfg.health, e = cfg.employment;
+
+    const bpjs_health_employee = pct(h.employee_percentage, DEFAULT_BPJS_HEALTH_EMPLOYEE);
+    const jht_employee = pct(e.jht_employee_percentage, DEFAULT_BPJS_JHT_EMPLOYEE);
+    const jp_employee = pct(e.jp_employee_percentage, DEFAULT_BPJS_JP_EMPLOYEE);
+    const bpjs_health_employer = pct(h.employer_percentage, DEFAULT_BPJS_HEALTH_EMPLOYER);
+    const jht_employer = pct(e.jht_employer_percentage, DEFAULT_BPJS_JHT_EMPLOYER);
+    const jkm_employer = pct(e.jkm_percentage, DEFAULT_BPJS_JKM_EMPLOYER);
+    const jp_employer = pct(e.jp_employer_percentage, DEFAULT_BPJS_JP_EMPLOYER);
+    const jkk_employer = jkk_rate != null ? Number(jkk_rate) / PERSEN : pct(e.jkk_percentage, DEFAULT_JKK_EMPLOYER);
 
     const meal_allowance = meal_days * meal_per_day;
     const transport_allowance = transport_days * transport_per_day;
@@ -137,14 +176,15 @@ router.post('/calculate', authorize('Administrator', 'HR Staff', 'Finance'), asy
       Number(overtime) +
       Number(bonus);
 
-    const bpjs_health = bpjs_base ? Math.round(Number(bpjs_base) * BPJS_HEALTH_EMPLOYEE) : 0;
-    const jht = bpjs_base ? Math.round(Number(bpjs_base) * BPJS_JHT_EMPLOYEE) : 0;
-    const jp = bpjs_base ? Math.round(Number(bpjs_base) * BPJS_JP_EMPLOYEE) : 0;
+    const bpjs_health = bpjs_base ? Math.round(Number(bpjs_base) * bpjs_health_employee) : 0;
+    const jht = bpjs_base ? Math.round(Number(bpjs_base) * jht_employee) : 0;
+    const jp = bpjs_base ? Math.round(Number(bpjs_base) * jp_employee) : 0;
     const pph21 = calculatePph21({
       grossMonthly: gross_income,
       taxCategory: tax_category,
       method: tax_method,
       iuranPensiunMonthly: Number(iuran_pensiun_monthly),
+      progressiveBands: cfg.taxLayers ? progressiveFromDb(cfg.taxLayers) : undefined,
     });
 
     const total_deduction =
@@ -152,11 +192,11 @@ router.post('/calculate', authorize('Administrator', 'HR Staff', 'Finance'), asy
 
     const take_home_pay = gross_income - total_deduction;
 
-    const employer_bpjs_health = bpjs_base ? Math.round(Number(bpjs_base) * BPJS_HEALTH_EMPLOYER) : 0;
-    const employer_jht = bpjs_base ? Math.round(Number(bpjs_base) * BPJS_JHT_EMPLOYER) : 0;
-    const employer_jkk = bpjs_base ? Math.round(Number(bpjs_base) * (Number(jkk_rate) / PERSEN)) : 0;
-    const employer_jkm = bpjs_base ? Math.round(Number(bpjs_base) * BPJS_JKM_EMPLOYER) : 0;
-    const employer_jp = bpjs_base ? Math.round(Number(bpjs_base) * BPJS_JP_EMPLOYER) : 0;
+    const employer_bpjs_health = bpjs_base ? Math.round(Number(bpjs_base) * bpjs_health_employer) : 0;
+    const employer_jht = bpjs_base ? Math.round(Number(bpjs_base) * jht_employer) : 0;
+    const employer_jkk = bpjs_base ? Math.round(Number(bpjs_base) * jkk_employer) : 0;
+    const employer_jkm = bpjs_base ? Math.round(Number(bpjs_base) * jkm_employer) : 0;
+    const employer_jp = bpjs_base ? Math.round(Number(bpjs_base) * jp_employer) : 0;
 
     const total_employer_cost =
       employer_bpjs_health + employer_jht + employer_jkk + employer_jkm + employer_jp;
@@ -195,6 +235,17 @@ router.post('/calculate', authorize('Administrator', 'HR Staff', 'Finance'), asy
           total_employer_cost,
         },
         cost_to_company,
+        config: {
+          bpjs_health_employee,
+          jht_employee,
+          jp_employee,
+          bpjs_health_employer,
+          jht_employer,
+          jkk_employer,
+          jkm_employer,
+          jp_employer,
+          source: (h.employee_percentage || e.jkk_percentage || cfg.taxLayers) ? 'compliance' : 'default',
+        },
       },
     });
   } catch (error) { next(error); }

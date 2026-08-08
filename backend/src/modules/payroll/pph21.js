@@ -68,11 +68,11 @@ function terRate(table, grossMonthly) {
   return table[table.length - 1][1];
 }
 
-function progressiveTax(pkp) {
+function progressiveTax(pkp, bands = PROGRESSIVE) {
   let remaining = pkp;
   let tax = 0;
   let prev = 0;
-  for (const [limit, rate] of PROGRESSIVE) {
+  for (const [limit, rate] of bands) {
     if (remaining <= 0) break;
     const band = Math.min(remaining, limit - prev);
     tax += band * (rate / 100);
@@ -83,15 +83,31 @@ function progressiveTax(pkp) {
 }
 
 /**
+ * Build progressive bands from DB tax_rates rows (fallback to built-in PROGRESSIVE).
+ * DB rows: { min_income, max_income, tax_rate } — tax_rate in percent.
+ * Returns [[upper_inclusive, rate_pct], ...]
+ */
+function progressiveFromDb(rows) {
+  if (!Array.isArray(rows) || !rows.length) return PROGRESSIVE;
+  const bands = rows
+    .filter(r => r && r.tax_rate != null)
+    .map(r => [r.max_income != null ? Number(r.max_income) : Infinity, Number(r.tax_rate)])
+    .sort((a, b) => a[0] - b[0]);
+  if (!bands.length) return PROGRESSIVE;
+  return bands;
+}
+
+/**
  * Calculate monthly PPh21 for a permanent employee.
  * @param {Object} opts
  * @param {number} opts.grossMonthly - monthly gross income (gaji bruto)
  * @param {string} opts.taxCategory - PTKP status e.g. 'TK0', 'K1'
  * @param {string} [opts.method] - 'TER' (default) or 'pasal17'
  * @param {number} [opts.iuranPensiunMonthly] - monthly pension contribution paid by employee
+ * @param {Array} [opts.progressiveBands] - [[upper, rate%]] from DB tax_rates (fallback: PROGRESSIVE)
  * @returns {{amount:number, method:string, terCategory?:string, terRate?:number, detail?:Object}}
  */
-function calculatePph21({ grossMonthly, taxCategory, method = 'TER', iuranPensiunMonthly = 0 }) {
+function calculatePph21({ grossMonthly, taxCategory, method = 'TER', iuranPensiunMonthly = 0, progressiveBands }) {
   const status = (taxCategory || 'TK0').toUpperCase();
 
   if (method === 'pasal17') {
@@ -101,7 +117,8 @@ function calculatePph21({ grossMonthly, taxCategory, method = 'TER', iuranPensiu
     const netoAnnual = netoMonthly * 12;
     const ptkp = PTKP[status] || PTKP.TK0;
     const pkp = Math.max(netoAnnual - ptkp, 0);
-    const taxAnnual = progressiveTax(pkp);
+    const bands = progressiveBands || PROGRESSIVE;
+    const taxAnnual = progressiveTax(pkp, bands);
     const amount = Math.round(taxAnnual / 12);
     return {
       amount,
@@ -127,4 +144,4 @@ function calculatePph21({ grossMonthly, taxCategory, method = 'TER', iuranPensiu
   return { amount, method: 'TER', terCategory: cat, terRate: rate };
 }
 
-module.exports = { calculatePph21, TER_CATEGORY, PTKP, PROGRESSIVE };
+module.exports = { calculatePph21, TER_CATEGORY, PTKP, PROGRESSIVE, progressiveFromDb };
