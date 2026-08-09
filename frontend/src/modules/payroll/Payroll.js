@@ -453,9 +453,9 @@ export default function Payroll() {
         </Card>
       </div>
 
-      <div className="tabs" style={{ display: 'flex', gap: 4, marginBottom: 'var(--space-4)' }}>
+      <div className="payroll-tabs">
         {tabs.map(t => (
-          <button key={t.id} className={`tab-btn ${tab === t.id ? 'active' : ''}`} onClick={() => setTab(t.id)}>{t.label}</button>
+          <button key={t.id} className={`payroll-tab ${tab === t.id ? 'active' : ''}`} onClick={() => setTab(t.id)}>{t.label}</button>
         ))}
       </div>
 
