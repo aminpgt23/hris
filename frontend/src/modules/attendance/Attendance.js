@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Card, Table, Badge, Button } from '../../components/ui';
+import { Card, Table, Badge, Button, Modal } from '../../components/ui';
 import { useToast } from '../../context/ToastContext';
 import api from '../../services/api';
 import SearchIcon from '@mui/icons-material/Search';
@@ -28,6 +28,29 @@ const methodBadge = {
   Web: <Badge variant="neutral">Web</Badge>,
 };
 
+const PhotoThumb = ({ photo, onClick }) => (
+  photo ? (
+    <button className="att-photo-thumb" onClick={onClick} title="View photo">
+      <img src={photo} alt="Attendance proof" />
+    </button>
+  ) : null
+);
+const geoLink = (lat, lng, name) => {
+  if (lat && lng) {
+    return (
+      <a
+        className="att-location-link"
+        href={`https://www.google.com/maps?q=${lat},${lng}`}
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        <LocationOnIcon fontSize="inherit" /> {name || `${Number(lat).toFixed(6)}, ${Number(lng).toFixed(6)}`}
+      </a>
+    );
+  }
+  return name ? <span className="att-location"><LocationOnIcon fontSize="inherit" /> {name}</span> : '-';
+};
+
 export default function Attendance() {
   const toast = useToast();
   const [records, setRecords] = useState([]);
@@ -38,6 +61,7 @@ export default function Attendance() {
   const [faceOpen, setFaceOpen] = useState(false);
   const [action, setAction] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [photoViewer, setPhotoViewer] = useState(null);
 
   const loadRecords = useCallback(async () => {
     setLoading(true);
@@ -115,11 +139,21 @@ export default function Attendance() {
     { key: 'employee_name', label: 'Employee', render: (v, r) => v || r.employee || '-' },
     { key: 'check_in_time', label: 'Check In', render: (v, r) => v ? `${new Date(v).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} ${r.check_in_method ? methodBadge[r.check_in_method] : ''}` : '-' },
     { key: 'check_out_time', label: 'Check Out', render: (v, r) => v ? `${new Date(v).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} ${r.check_out_method ? methodBadge[r.check_out_method] : ''}` : '-' },
+    { key: 'photos', label: 'Photos', render: (_, r) => (
+        <div className="att-photos">
+          <PhotoThumb photo={r.check_in_photo} onClick={() => setPhotoViewer({ record: r, which: 'in' })} />
+          <PhotoThumb photo={r.check_out_photo} onClick={() => setPhotoViewer({ record: r, which: 'out' })} />
+        </div>
+      ) },
     { key: 'status', label: 'Status', render: (v) => statusBadge[v] || v || '-' },
-    { key: 'location', label: 'Location', render: (_, r) => {
-        const loc = r.check_in_location_name || (r.check_in_location_lat ? `${Number(r.check_in_location_lat).toFixed(6)}, ${Number(r.check_in_location_lng).toFixed(6)}` : null);
-        return loc ? <span className="att-location"><LocationOnIcon fontSize="inherit" /> {loc}</span> : '-';
-      } },
+    { key: 'location', label: 'Location', render: (_, r) => (
+        <div className="att-locations">
+          {geoLink(r.check_in_location_lat, r.check_in_location_lng, r.check_in_location_name)}
+          {r.check_out_location_lat || r.check_out_location_name ? (
+            <span className="att-loc-out">{geoLink(r.check_out_location_lat, r.check_out_location_lng, r.check_out_location_name)}</span>
+          ) : null}
+        </div>
+      ) },
     { key: 'work_hours', label: 'Hours', render: (v) => v ? `${Number(v).toFixed(1)}h` : '-' },
   ];
 
@@ -170,6 +204,49 @@ export default function Attendance() {
         onSubmit={handleFaceSubmit}
         submitting={submitting}
       />
+
+      <Modal
+        open={!!photoViewer}
+        onClose={() => setPhotoViewer(null)}
+        title={photoViewer ? `Attendance Photo - ${photoViewer.which === 'in' ? 'Check In' : 'Check Out'}` : ''}
+      >
+        {photoViewer && (
+          <div className="att-photo-viewer">
+            <img
+              src={photoViewer.which === 'in' ? photoViewer.record.check_in_photo : photoViewer.record.check_out_photo}
+              alt={`${photoViewer.which === 'in' ? 'Check-in' : 'Check-out'} evidence`}
+            />
+            <div className="att-photo-meta">
+              <div className="ps-row">
+                <span>Employee</span>
+                <span>{photoViewer.record.employee_name || '-'}</span>
+              </div>
+              <div className="ps-row">
+                <span>Time</span>
+                <span>
+                  {photoViewer.which === 'in'
+                    ? (photoViewer.record.check_in_time ? new Date(photoViewer.record.check_in_time).toLocaleString() : '-')
+                    : (photoViewer.record.check_out_time ? new Date(photoViewer.record.check_out_time).toLocaleString() : '-')}
+                </span>
+              </div>
+              <div className="ps-row">
+                <span>Location</span>
+                <span>
+                  {photoViewer.which === 'in'
+                    ? (photoViewer.record.check_in_location_name
+                        || (photoViewer.record.check_in_location_lat
+                          ? `${Number(photoViewer.record.check_in_location_lat).toFixed(6)}, ${Number(photoViewer.record.check_in_location_lng).toFixed(6)}`
+                          : '-'))
+                    : (photoViewer.record.check_out_location_name
+                        || (photoViewer.record.check_out_location_lat
+                          ? `${Number(photoViewer.record.check_out_location_lat).toFixed(6)}, ${Number(photoViewer.record.check_out_location_lng).toFixed(6)}`
+                          : '-'))}
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }

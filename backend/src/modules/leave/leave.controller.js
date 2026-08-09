@@ -78,6 +78,9 @@ exports.getAll = async (req, res, next) => {
     if (req.user.roleName === 'Employee') {
       where += ' AND lr.employee_id = ?';
       params.push(req.user.employeeId);
+    } else if (req.user.roleName === 'Manager') {
+      where += ' AND e.supervisor_id = ?';
+      params.push(req.user.employeeId);
     }
 
     const [rows] = await db.execute(
@@ -101,6 +104,20 @@ exports.getAll = async (req, res, next) => {
 exports.approveManager = async (req, res, next) => {
   try {
     const { comments } = req.body;
+
+    // Manager can only approve requests from their own team
+    if (req.user.roleName === 'Manager') {
+      const [teamCheck] = await db.execute(
+        `SELECT lr.id FROM leave_requests lr
+         JOIN employees e ON lr.employee_id = e.id
+         WHERE lr.id = ? AND e.supervisor_id = ? AND lr.status = 'Pending Manager'`,
+        [req.params.id, req.user.employeeId]
+      );
+      if (teamCheck.length === 0) {
+        return res.status(403).json({ success: false, message: 'Not authorized: leave request is not from your team' });
+      }
+    }
+
     const [result] = await db.execute(
       `UPDATE leave_requests SET status='Pending HR', manager_approved_by=?, manager_approved_at=NOW(), notes=?
        WHERE id=? AND status='Pending Manager'`,
@@ -144,6 +161,19 @@ exports.approveHR = async (req, res, next) => {
 exports.reject = async (req, res, next) => {
   try {
     const { rejection_reason } = req.body;
+
+    if (req.user.roleName === 'Manager') {
+      const [teamCheck] = await db.execute(
+        `SELECT lr.id FROM leave_requests lr
+         JOIN employees e ON lr.employee_id = e.id
+         WHERE lr.id = ? AND e.supervisor_id = ? AND lr.status IN ('Pending Manager', 'Pending HR')`,
+        [req.params.id, req.user.employeeId]
+      );
+      if (teamCheck.length === 0) {
+        return res.status(403).json({ success: false, message: 'Not authorized: leave request is not from your team' });
+      }
+    }
+
     const [result] = await db.execute(
       `UPDATE leave_requests SET status='Rejected', rejection_reason=?, hr_approved_by=?, hr_approved_at=NOW()
        WHERE id=? AND status IN ('Pending Manager', 'Pending HR')`,

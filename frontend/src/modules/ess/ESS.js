@@ -8,6 +8,7 @@ import BeachAccessIcon from '@mui/icons-material/BeachAccess';
 import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
 import BarChartIcon from '@mui/icons-material/BarChart';
 import RefreshIcon from '@mui/icons-material/Refresh';
+import FaceCaptureModal from '../attendance/FaceCaptureModal';
 import './ESS.css';
 
 const attendanceBadge = {
@@ -47,6 +48,8 @@ export default function ESS() {
   const [editForm, setEditForm] = useState({});
   const [saving, setSaving] = useState(false);
   const [detailPayslip, setDetailPayslip] = useState(null);
+  const [faceOpen, setFaceOpen] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   const loadData = async () => {
     setLoading(true);
@@ -92,12 +95,27 @@ export default function ESS() {
   };
 
   const handleCheckIn = async () => {
+    setFaceOpen(true);
+  };
+
+  const handleFaceSubmit = async (faceData) => {
+    setSubmitting(true);
     try {
-      const res = await api.post('/attendance/check-in', { method: 'Web' });
+      const payload = {
+        method: 'Face',
+        photo: faceData.photo,
+        location_lat: faceData.location_lat,
+        location_lng: faceData.location_lng,
+        location_name: faceData.location_name,
+      };
+      const res = await api.post('/attendance/check-in', payload);
       toast.success(res.data?.message || 'Check-in successful');
+      setFaceOpen(false);
       loadData();
     } catch (err) {
       toast.error(err.response?.data?.message || 'Check-in failed');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -270,6 +288,13 @@ export default function ESS() {
           </div>
         )}
       </Modal>
+
+      <FaceCaptureModal
+        open={faceOpen}
+        onClose={() => setFaceOpen(false)}
+        onSubmit={handleFaceSubmit}
+        submitting={submitting}
+      />
     </div>
   );
 }

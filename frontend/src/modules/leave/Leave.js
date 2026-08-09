@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Card, Table, Badge, Button, Modal } from '../../components/ui';
 import { useToast } from '../../context/ToastContext';
+import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
 import AddIcon from '@mui/icons-material/Add';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
@@ -18,6 +19,11 @@ const statusBadge = {
 
 export default function LeaveManagement() {
   const toast = useToast();
+  const { hasRole } = useAuth();
+  const isEmployee = hasRole('Employee');
+  const isManager = hasRole('Manager');
+  const isHR = hasRole('HR Staff');
+  const isAdmin = hasRole('Administrator');
   const [requests, setRequests] = useState([]);
   const [balances, setBalances] = useState([]);
   const [leaveTypes, setLeaveTypes] = useState([]);
@@ -90,20 +96,31 @@ export default function LeaveManagement() {
     { key: 'total_days', label: 'Days', render: (v) => v ?? '-' },
     { key: 'status', label: 'Status', render: (v) => statusBadge[v] || v || '-' },
     { key: 'id', label: '', width: '120px',
-      render: (v, r) => (
-        <div className="flex gap-1">
-          {(r.status === 'Pending Manager' || r.status === 'Pending HR') && (
-            <>
-              <button className="tbl-action" onClick={() => handleApprove(v, r.status === 'Pending HR' ? 'hr' : 'manager')} title="Approve">
+      render: (v, r) => {
+        const canApproveManager = (isManager || isAdmin) && r.status === 'Pending Manager';
+        const canApproveHR = (isHR || isAdmin) && r.status === 'Pending HR';
+        const canReject = (isManager || isHR || isAdmin) && (r.status === 'Pending Manager' || r.status === 'Pending HR');
+        if (!canApproveManager && !canApproveHR && !canReject) return null;
+        return (
+          <div className="flex gap-1">
+            {canApproveManager && (
+              <button className="tbl-action" onClick={() => handleApprove(v, 'manager')} title="Approve">
                 <CheckCircleIcon fontSize="small" />
               </button>
+            )}
+            {canApproveHR && (
+              <button className="tbl-action" onClick={() => handleApprove(v, 'hr')} title="Approve">
+                <CheckCircleIcon fontSize="small" />
+              </button>
+            )}
+            {canReject && (
               <button className="tbl-action danger" onClick={() => handleReject(v)} title="Reject">
                 <CancelIcon fontSize="small" />
               </button>
-            </>
-          )}
-        </div>
-      ),
+            )}
+          </div>
+        );
+      },
     },
   ];
 
@@ -121,21 +138,38 @@ export default function LeaveManagement() {
       </div>
 
       <div className="stats-grid">
-        {leaveTypes.slice(0, 4).map(lt => {
-          const bal = balances.find(b => b.leave_type_id === lt.id);
-          const remaining = bal ? bal.closing_balance : lt.default_days_per_year || 0;
-          const total = lt.default_days_per_year || 12;
-          return (
-            <Card key={lt.id} className="leave-balance">
-              <div className="lb-type" style={{ color: 'var(--color-primary)' }}>{lt.name}</div>
+        {isEmployee ? (
+          leaveTypes.slice(0, 4).map(lt => {
+            const bal = balances.find(b => b.leave_type_id === lt.id);
+            const remaining = bal ? bal.closing_balance : lt.default_days_per_year || 0;
+            const total = lt.default_days_per_year || 12;
+            return (
+              <Card key={lt.id} className="leave-balance">
+                <div className="lb-type" style={{ color: 'var(--color-primary)' }}>{lt.name}</div>
+                <div className="lb-days">
+                  <span className="lb-remaining">{remaining}</span>
+                  <span className="lb-total">/ {total}</span>
+                </div>
+                <div className="lb-label">Remaining / Total</div>
+              </Card>
+            );
+          })
+        ) : (
+          [
+            { label: 'Pending Manager', count: requests.filter(r => r.status === 'Pending Manager').length, color: 'var(--color-warning)' },
+            { label: 'Pending HR', count: requests.filter(r => r.status === 'Pending HR').length, color: 'var(--color-info)' },
+            { label: 'Approved', count: requests.filter(r => r.status === 'Approved').length, color: 'var(--color-success)' },
+            { label: 'Rejected', count: requests.filter(r => r.status === 'Rejected').length, color: 'var(--color-danger)' },
+          ].map(s => (
+            <Card key={s.label} className="leave-balance">
+              <div className="lb-type" style={{ color: s.color }}>{s.label}</div>
               <div className="lb-days">
-                <span className="lb-remaining">{remaining}</span>
-                <span className="lb-total">/ {total}</span>
+                <span className="lb-remaining">{s.count}</span>
               </div>
-              <div className="lb-label">Remaining / Total</div>
+              <div className="lb-label">{isManager ? 'Your team' : 'All requests'}</div>
             </Card>
-          );
-        })}
+          ))
+        )}
       </div>
 
       <Card>

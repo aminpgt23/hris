@@ -63,6 +63,15 @@ export default function Login() {
 
         {/* Form Section */}
         <div className="login-form-wrapper">
+          <div className="login-mobile-logo">
+            <img
+              src={`${process.env.PUBLIC_URL || ''}/logo.png`}
+              alt="Human Resource"
+              className="login-logo"
+            />
+            <h1 className="login-title">{t('login_title')}</h1>
+          </div>
+
           <div className="login-form-card">
             <h2 className="login-form-title">{t('login_signin')}</h2>
             <p className="login-form-subtitle">{t('login_sub_signin')}</p>
