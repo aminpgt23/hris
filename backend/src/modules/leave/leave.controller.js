@@ -79,8 +79,8 @@ exports.getAll = async (req, res, next) => {
       where += ' AND lr.employee_id = ?';
       params.push(req.user.employeeId);
     } else if (req.user.roleName === 'Manager') {
-      where += ' AND e.supervisor_id = ?';
-      params.push(req.user.employeeId);
+      where += ' AND (e.supervisor_id = ? OR lr.employee_id = ?)';
+      params.push(req.user.employeeId, req.user.employeeId);
     }
 
     const [rows] = await db.execute(

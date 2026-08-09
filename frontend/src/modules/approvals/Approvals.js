@@ -83,14 +83,16 @@ export default function Approvals() {
   };
 
   const visibleRequests = requests.filter(r => {
-    if (isManager && !isAdmin) return r.status === 'Pending Manager';
+    if (isManager && !isAdmin) return r.status === 'Pending Manager' || r.status === 'Pending HR';
     if (isHR && !isAdmin) return r.status === 'Pending HR' || r.status === 'Pending Manager';
     return true;
   });
 
-  const canApprove = (status) => {
+  const isOwnRequest = (r) => user?.employeeId && r.employee_id === user.employeeId;
+
+  const canApprove = (req, status) => {
     if (isAdmin) return status === 'Pending Manager' || status === 'Pending HR';
-    if (isManager) return status === 'Pending Manager';
+    if (isManager) return status === 'Pending Manager' && !isOwnRequest(req);
     if (isHR) return status === 'Pending HR';
     return false;
   };
@@ -105,19 +107,19 @@ export default function Approvals() {
       <div className="apr-stats">
         <Card className="apr-stat-card">
           <div className="apr-stat-value" style={{ color: 'var(--color-warning)' }}>
-            {requests.filter(r => r.status === 'Pending Manager' || r.status === 'Pending HR').length}
+            {visibleRequests.filter(r => r.status === 'Pending Manager' || r.status === 'Pending HR').length}
           </div>
           <div className="apr-stat-label">Awaiting Approval</div>
         </Card>
         <Card className="apr-stat-card">
           <div className="apr-stat-value" style={{ color: 'var(--color-success)' }}>
-            {requests.filter(r => r.status === 'Approved').length}
+            {visibleRequests.filter(r => r.status === 'Approved').length}
           </div>
           <div className="apr-stat-label">Approved</div>
         </Card>
         <Card className="apr-stat-card">
           <div className="apr-stat-value" style={{ color: 'var(--color-danger)' }}>
-            {requests.filter(r => r.status === 'Rejected').length}
+            {visibleRequests.filter(r => r.status === 'Rejected').length}
           </div>
           <div className="apr-stat-label">Rejected</div>
         </Card>
@@ -177,7 +179,7 @@ export default function Approvals() {
                   <VisibilityIcon fontSize="small" />
                 </button>
 
-                {canApprove(req.status) && (
+                {canApprove(req, req.status) && (
                   <>
                     <button className="apr-action approve" onClick={() => handleApprove(req.id, req.status)} title="Approve">
                       <CheckCircleIcon fontSize="small" />
@@ -237,7 +239,7 @@ export default function Approvals() {
         )}
         <div className="modal-actions">
           <Button variant="ghost" onClick={() => setDetailOpen(false)}>Close</Button>
-          {detailItem && canApprove(detailItem.status) && (
+          {detailItem && canApprove(detailItem, detailItem.status) && (
             <>
               <Button variant="danger" onClick={() => { setDetailOpen(false); openReject(detailItem.id); }}>
                 <CancelIcon fontSize="small" /> Reject

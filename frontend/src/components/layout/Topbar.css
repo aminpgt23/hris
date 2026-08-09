@@ -523,11 +523,13 @@
   .topbar {
     left: 0 !important;
     padding: 0 var(--space-3);
+    gap: var(--space-3);
   }
 
   .topbar-left {
-    max-width: calc(100% - 130px);
+    flex: 1;
     min-width: 0;
+    gap: var(--space-2);
   }
 
   .search-shortcut {
@@ -540,7 +542,11 @@
 
   .topbar-right {
     flex-shrink: 0;
-    gap: 4px;
+    gap: var(--space-2);
+  }
+
+  .topbar-lang-label {
+    display: none;
   }
 
   .topbar-icon-btn {

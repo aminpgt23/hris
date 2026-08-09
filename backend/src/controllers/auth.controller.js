@@ -114,6 +114,7 @@ exports.login = async (req, res, next) => {
           username: user.username,
           email: user.email,
           roleName: user.role_name,
+          employeeId: user.employee_id,
           employeeNumber: user.employee_number,
           permissions: (() => {
             if (!user.permissions) return [];

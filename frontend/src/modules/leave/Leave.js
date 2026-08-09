@@ -19,7 +19,7 @@ const statusBadge = {
 
 export default function LeaveManagement() {
   const toast = useToast();
-  const { hasRole } = useAuth();
+  const { user, hasRole } = useAuth();
   const isEmployee = hasRole('Employee');
   const isManager = hasRole('Manager');
   const isHR = hasRole('HR Staff');
@@ -97,9 +97,10 @@ export default function LeaveManagement() {
     { key: 'status', label: 'Status', render: (v) => statusBadge[v] || v || '-' },
     { key: 'id', label: '', width: '120px',
       render: (v, r) => {
-        const canApproveManager = (isManager || isAdmin) && r.status === 'Pending Manager';
+        const isOwn = user?.employeeId && r.employee_id === user.employeeId;
+        const canApproveManager = (isManager || isAdmin) && r.status === 'Pending Manager' && !isOwn;
         const canApproveHR = (isHR || isAdmin) && r.status === 'Pending HR';
-        const canReject = (isManager || isHR || isAdmin) && (r.status === 'Pending Manager' || r.status === 'Pending HR');
+        const canReject = (isManager || isHR || isAdmin) && (r.status === 'Pending Manager' || r.status === 'Pending HR') && !isOwn;
         if (!canApproveManager && !canApproveHR && !canReject) return null;
         return (
           <div className="flex gap-1">
@@ -166,7 +167,7 @@ export default function LeaveManagement() {
               <div className="lb-days">
                 <span className="lb-remaining">{s.count}</span>
               </div>
-              <div className="lb-label">{isManager ? 'Your team' : 'All requests'}</div>
+              <div className="lb-label">{isManager ? 'Team & mine' : 'All requests'}</div>
             </Card>
           ))
         )}
