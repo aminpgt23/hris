@@ -80,7 +80,7 @@ const roleMenus = {
     { label: 'My Profile', path: '/ess' },
     { label: 'Attendance', path: '/attendance' },
     { label: 'Apply Leave', path: '/leave' },
-    { label: 'My Payslip', path: '/payroll' },
+    { label: 'My Payslip', path: '/my-payslip' },
     { label: 'My Assets', path: '/asset' },
     { label: 'Training', path: '/training' },
     { label: 'Notifications', path: '/notifications' },

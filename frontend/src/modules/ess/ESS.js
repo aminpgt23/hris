@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Badge, Button } from '../../components/ui';
+import { Card, Badge, Button, Modal } from '../../components/ui';
+import { useToast } from '../../context/ToastContext';
+import { useNavigate } from 'react-router-dom';
 import api from '../../services/api';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import BeachAccessIcon from '@mui/icons-material/BeachAccess';
@@ -21,12 +23,30 @@ const formatCurrency = (val) => {
   return `Rp ${Number(val).toLocaleString('id-ID')}`;
 };
 
+const EDITABLE_FIELDS = [
+  { key: 'phone_personal', label: 'Personal Phone', type: 'text' },
+  { key: 'email_personal', label: 'Personal Email', type: 'email' },
+  { key: 'address_current', label: 'Address', type: 'text' },
+  { key: 'city', label: 'City', type: 'text' },
+  { key: 'province', label: 'Province', type: 'text' },
+  { key: 'bank_name', label: 'Bank Name', type: 'text' },
+  { key: 'bank_account_number', label: 'Bank Account No', type: 'text' },
+  { key: 'emergency_contact_name', label: 'Emergency Contact', type: 'text' },
+  { key: 'emergency_contact_phone', label: 'Emergency Phone', type: 'text' },
+];
+
 export default function ESS() {
+  const toast = useToast();
+  const navigate = useNavigate();
   const [profile, setProfile] = useState(null);
   const [payslips, setPayslips] = useState([]);
   const [attendance, setAttendance] = useState([]);
   const [espStats, setEssStats] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [editOpen, setEditOpen] = useState(false);
+  const [editForm, setEditForm] = useState({});
+  const [saving, setSaving] = useState(false);
+  const [detailPayslip, setDetailPayslip] = useState(null);
 
   const loadData = async () => {
     setLoading(true);
@@ -46,6 +66,40 @@ export default function ESS() {
   };
 
   useEffect(() => { loadData(); }, []);
+
+  const openEditProfile = () => {
+    const form = {};
+    EDITABLE_FIELDS.forEach(f => { form[f.key] = profile?.[f.key] || ''; });
+    setEditForm(form);
+    setEditOpen(true);
+  };
+
+  const handleSaveProfile = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      const payload = {};
+      EDITABLE_FIELDS.forEach(f => { payload[f.key] = editForm[f.key] || ''; });
+      await api.put('/ess/profile', payload);
+      toast.success('Profile updated successfully');
+      setEditOpen(false);
+      loadData();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to update profile');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleCheckIn = async () => {
+    try {
+      const res = await api.post('/attendance/check-in', { method: 'Web' });
+      toast.success(res.data?.message || 'Check-in successful');
+      loadData();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Check-in failed');
+    }
+  };
 
   const initials = profile
     ? `${(profile.first_name || '')[0]}${(profile.last_name || '')[0]}`
@@ -86,7 +140,7 @@ export default function ESS() {
                   </div>
                 </div>
                 <div className="ess-actions">
-                  <Button variant="outline" size="sm" fullWidth>Edit Profile</Button>
+                  <Button variant="outline" size="sm" fullWidth onClick={openEditProfile}>Edit Profile</Button>
                 </div>
               </>
             ) : (
@@ -99,19 +153,20 @@ export default function ESS() {
           {/* Quick Actions */}
           <Card title="Quick Actions">
             <div className="ess-quick-actions">
-              <button className="ess-quick-btn" title={todayStatus?.check_in_time ? 'Already checked in' : 'Check in now'}>
+              <button className="ess-quick-btn" title={todayStatus?.check_in_time ? 'Already checked in' : 'Check in now'}
+                disabled={!!todayStatus?.check_in_time} onClick={handleCheckIn}>
                 <span className="eq-icon"><AccessTimeIcon /></span>
                 <span className="eq-label">{todayStatus?.check_in_time ? 'Checked In' : 'Check In'}</span>
               </button>
-              <button className="ess-quick-btn">
+              <button className="ess-quick-btn" onClick={() => navigate('/leave')}>
                 <span className="eq-icon"><BeachAccessIcon /></span>
                 <span className="eq-label">Apply Leave</span>
               </button>
-              <button className="ess-quick-btn">
+              <button className="ess-quick-btn" onClick={() => navigate('/my-payslip')}>
                 <span className="eq-icon"><AccountBalanceWalletIcon /></span>
                 <span className="eq-label">Payslip</span>
               </button>
-              <button className="ess-quick-btn">
+              <button className="ess-quick-btn" onClick={() => navigate('/attendance')}>
                 <span className="eq-icon"><BarChartIcon /></span>
                 <span className="eq-label">My Hours</span>
               </button>
@@ -131,7 +186,7 @@ export default function ESS() {
                   <div className="ps-row ps-net"><span>Net Salary</span><span>{formatCurrency(latestPayslip.net_salary)}</span></div>
                 </div>
                 <div className="ess-actions">
-                  <Button variant="outline" size="sm" fullWidth>View Full Payslip</Button>
+                  <Button variant="outline" size="sm" fullWidth onClick={() => setDetailPayslip(latestPayslip)}>View Full Payslip</Button>
                 </div>
               </>
             ) : (
@@ -167,6 +222,54 @@ export default function ESS() {
           </Card>
         </div>
       )}
+
+      {/* Edit Profile Modal */}
+      <Modal open={editOpen} onClose={() => setEditOpen(false)} title="Edit Profile" size="lg">
+        <form onSubmit={handleSaveProfile}>
+          <div className="form-row">
+            {EDITABLE_FIELDS.map(f => (
+              <div className="form-group" key={f.key} style={{ flex: 1 }}>
+                <label className="form-label">{f.label}</label>
+                <input
+                  type={f.type}
+                  className="form-input"
+                  value={editForm[f.key] || ''}
+                  onChange={e => setEditForm({ ...editForm, [f.key]: e.target.value })}
+                />
+              </div>
+            ))}
+          </div>
+          <div className="modal-actions">
+            <Button variant="ghost" type="button" onClick={() => setEditOpen(false)}>Cancel</Button>
+            <Button variant="primary" type="submit" disabled={saving}>{saving ? 'Saving...' : 'Save Changes'}</Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Payslip Detail Modal */}
+      <Modal open={!!detailPayslip} onClose={() => setDetailPayslip(null)} title={detailPayslip?.period_name || 'Payslip Detail'}>
+        {detailPayslip && (
+          <div className="ess-payslip-detail">
+            <div className="ps-row"><span>Employee</span><span>{detailPayslip.employee_name || '-'}</span></div>
+            <div className="ps-row"><span>Period</span><span>{detailPayslip.period_name || '-'}</span></div>
+            <div className="ps-row"><span>Working Days</span><span>{detailPayslip.working_days ?? '-'}</span></div>
+            <div className="ps-row"><span>Present Days</span><span>{detailPayslip.present_days ?? '-'}</span></div>
+            <div className="ps-row"><span>Overtime Hours</span><span>{detailPayslip.overtime_hours ?? '-'}</span></div>
+            <div className="ps-row"><span>Basic Salary</span><span>{formatCurrency(detailPayslip.basic_salary)}</span></div>
+            <div className="ps-row"><span>Allowances</span><span>{formatCurrency(detailPayslip.total_allowances)}</span></div>
+            <div className="ps-row"><span>Overtime Pay</span><span>{formatCurrency(detailPayslip.overtime_pay)}</span></div>
+            <div className="ps-row ps-total"><span>Gross Salary</span><span>{formatCurrency(detailPayslip.gross_salary)}</span></div>
+            <div className="ps-row"><span>BPJS Health</span><span>-{formatCurrency(detailPayslip.bpjs_health_employee)}</span></div>
+            <div className="ps-row"><span>BPJS Employment</span><span>-{formatCurrency(detailPayslip.bpjs_employment_employee)}</span></div>
+            <div className="ps-row"><span>Pension</span><span>-{formatCurrency(detailPayslip.pension_employee)}</span></div>
+            <div className="ps-row"><span>PPh21</span><span>-{formatCurrency(detailPayslip.pph21_employee)}</span></div>
+            <div className="ps-row"><span>Total Deductions</span><span>-{formatCurrency(detailPayslip.deductions)}</span></div>
+            <div className="ps-row ps-net"><span>Net Salary</span><span>{formatCurrency(detailPayslip.net_salary)}</span></div>
+            <div className="ps-row"><span>Payment Method</span><span>{detailPayslip.payment_method || '-'}</span></div>
+            <div className="ps-row"><span>Payment Status</span><span>{detailPayslip.payment_status || '-'}</span></div>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }

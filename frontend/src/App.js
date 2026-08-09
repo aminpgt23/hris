@@ -23,7 +23,7 @@ import { Attendance } from './modules/attendance';
 import { LeaveManagement } from './modules/leave';
 import { Payroll } from './modules/payroll';
 import { Compliance } from './modules/compliance';
-import { ESS } from './modules/ess';
+import { ESS, MyPayslip } from './modules/ess';
 import { AssetManagement } from './modules/asset';
 import { Training } from './modules/training';
 import { Notifications } from './modules/notification';
@@ -42,6 +42,25 @@ const ProtectedRoute = ({ children }) => {
   }
 
   return isAuthenticated ? children : <Navigate to="/login" replace />;
+};
+
+// ---------- Role Protected Route ----------
+const RoleRoute = ({ roles, children }) => {
+  const { user, isAuthenticated, loading } = useAuth();
+
+  if (loading) {
+    return <div className="loading-screen">Loading...</div>;
+  }
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (roles && !roles.includes(user?.roleName)) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  return children;
 };
 
 // ---------- Main Layout ----------
@@ -90,13 +109,13 @@ const AppContent = () => {
         <ProtectedRoute><MainLayout><Dashboard /></MainLayout></ProtectedRoute>
       } />
       <Route path="/master-data" element={
-        <ProtectedRoute><MainLayout><MasterData /></MainLayout></ProtectedRoute>
+        <ProtectedRoute><MainLayout><RoleRoute roles={['Administrator']}><MasterData /></RoleRoute></MainLayout></ProtectedRoute>
       } />
       <Route path="/core-hr" element={
-        <ProtectedRoute><MainLayout><EmployeeList /></MainLayout></ProtectedRoute>
+        <ProtectedRoute><MainLayout><RoleRoute roles={['Administrator', 'HR Staff', 'Manager']}><EmployeeList /></RoleRoute></MainLayout></ProtectedRoute>
       } />
       <Route path="/core-hr/departments" element={
-        <ProtectedRoute><MainLayout><DepartmentTree /></MainLayout></ProtectedRoute>
+        <ProtectedRoute><MainLayout><RoleRoute roles={['Administrator', 'HR Staff', 'Manager']}><DepartmentTree /></RoleRoute></MainLayout></ProtectedRoute>
       } />
       <Route path="/attendance" element={
         <ProtectedRoute><MainLayout><Attendance /></MainLayout></ProtectedRoute>
@@ -105,10 +124,13 @@ const AppContent = () => {
         <ProtectedRoute><MainLayout><LeaveManagement /></MainLayout></ProtectedRoute>
       } />
       <Route path="/payroll" element={
-        <ProtectedRoute><MainLayout><Payroll /></MainLayout></ProtectedRoute>
+        <ProtectedRoute><MainLayout><RoleRoute roles={['Administrator', 'HR Staff', 'Finance', 'Director']}><Payroll /></RoleRoute></MainLayout></ProtectedRoute>
       } />
       <Route path="/compliance" element={
-        <ProtectedRoute><MainLayout><Compliance /></MainLayout></ProtectedRoute>
+        <ProtectedRoute><MainLayout><RoleRoute roles={['Administrator', 'HR Staff', 'Finance', 'Director']}><Compliance /></RoleRoute></MainLayout></ProtectedRoute>
+      } />
+      <Route path="/my-payslip" element={
+        <ProtectedRoute><MainLayout><MyPayslip /></MainLayout></ProtectedRoute>
       } />
       <Route path="/ess" element={
         <ProtectedRoute><MainLayout><ESS /></MainLayout></ProtectedRoute>
@@ -123,13 +145,13 @@ const AppContent = () => {
         <ProtectedRoute><MainLayout><Notifications /></MainLayout></ProtectedRoute>
       } />
       <Route path="/reports" element={
-        <ProtectedRoute><MainLayout><Reports /></MainLayout></ProtectedRoute>
+        <ProtectedRoute><MainLayout><RoleRoute roles={['Administrator', 'HR Staff', 'Manager', 'Finance', 'Director']}><Reports /></RoleRoute></MainLayout></ProtectedRoute>
       } />
       <Route path="/system/*" element={
-        <ProtectedRoute><MainLayout><SystemSettings /></MainLayout></ProtectedRoute>
+        <ProtectedRoute><MainLayout><RoleRoute roles={['Administrator']}><SystemSettings /></RoleRoute></MainLayout></ProtectedRoute>
       } />
       <Route path="/approvals/*" element={
-        <ProtectedRoute><MainLayout><Approvals /></MainLayout></ProtectedRoute>
+        <ProtectedRoute><MainLayout><RoleRoute roles={['Administrator', 'HR Staff', 'Manager', 'Director']}><Approvals /></RoleRoute></MainLayout></ProtectedRoute>
       } />
       <Route path="/help" element={
         <ProtectedRoute><MainLayout><Help /></MainLayout></ProtectedRoute>

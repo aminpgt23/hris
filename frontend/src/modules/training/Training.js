@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Card, Badge, Button, Modal } from '../../components/ui';
 import { useToast } from '../../context/ToastContext';
+import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
@@ -33,6 +34,8 @@ const tabs = [
 
 export default function Training() {
   const toast = useToast();
+  const { hasRole } = useAuth();
+  const canManage = hasRole('Administrator', 'HR Staff');
   const [view, setView] = useState('programs');
   const [programs, setPrograms] = useState([]);
   const [sessions, setSessions] = useState([]);
@@ -159,14 +162,15 @@ export default function Training() {
     { key: 'type', label: 'Type' },
     { key: 'duration_hours', label: 'Hours', render: (v) => v ? `${v}h` : '-' },
     { key: 'cost_estimate', label: 'Cost', render: (v) => v ? `Rp${Number(v).toLocaleString()}` : '-' },
-    { key: 'id', label: '', width: '100px',
+    ...(canManage ? [{
+      key: 'id', label: '', width: '100px',
       render: (v, r) => (
         <div style={{ display: 'flex', gap: 4 }}>
           <button className="tbl-action" onClick={() => handleEdit(r)} title="Edit"><EditIcon fontSize="small" /></button>
           <button className="tbl-action danger" onClick={() => handleDelete(v)} title="Delete"><DeleteIcon fontSize="small" /></button>
         </div>
       ),
-    },
+    }] : []),
   ];
 
   const sessionCols = [
@@ -192,7 +196,8 @@ export default function Training() {
     { key: 'program_title', label: 'Program' },
     { key: 'session_title', label: 'Session' },
     { key: 'enrollment_status', label: 'Status', render: (v) => enrollmentBadge[v] || v },
-    { key: 'id', label: '', width: '120px',
+    ...(canManage ? [{
+      key: 'id', label: '', width: '120px',
       render: (v, r) => (
         <select className="form-input tbl-select" value={r.enrollment_status}
           onChange={(e) => handleEnrollmentUpdate(v, { enrollment_status: e.target.value })}>
@@ -202,7 +207,7 @@ export default function Training() {
           <option value="Withdrawn">Withdrawn</option>
         </select>
       ),
-    },
+    }] : []),
   ];
 
   return (
@@ -212,7 +217,7 @@ export default function Training() {
           <h1>Training</h1>
           <p>Manage training programs, sessions, and enrollments</p>
         </div>
-        {view === 'programs' && (
+        {view === 'programs' && canManage && (
           <Button variant="primary" onClick={openCreate}><AddIcon fontSize="small" /> Add Program</Button>
         )}
       </div>
