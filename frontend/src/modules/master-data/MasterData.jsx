@@ -24,6 +24,16 @@ const sections = [
   { id: 'holidays', label: 'Holidays', icon: EventIcon },
 ];
 
+const sectionEndpoints = {
+  companies: '/companies',
+  branches: '/core-hr/branches',
+  departments: '/core-hr/departments',
+  positions: '/core-hr/positions',
+  grades: '/core-hr/grades',
+  shifts: '/attendance/shifts',
+  holidays: '/attendance/holidays',
+};
+
 const sectionColumns = {
   companies: [
     { key: 'code', label: 'Code', width: '100px' },
@@ -67,16 +77,31 @@ const sectionColumns = {
   holidays: [
     { key: 'name', label: 'Holiday Name' },
     { key: 'date', label: 'Date', width: '120px', render: (v) => v ? new Date(v).toLocaleDateString() : '-' },
-    { key: 'is_recurring', label: 'Recurring', width: '90px', render: (v) => v ? 'Yes' : 'No' },
+    { key: 'type', label: 'Type', width: '100px', render: (v) => v || '-' },
     { key: 'is_active', label: 'Status', width: '90px', render: (v) => <Badge variant={v ? 'success' : 'muted'}>{v ? 'Active' : 'Inactive'}</Badge> },
   ],
 };
 
-const emptyForm = { code: '', name: '', description: '', is_active: true };
+const emptyForm = {
+  company_id: 1, code: '', name: '', description: '', is_active: true,
+  legal_name: '', tax_id: '', address: '', city: '', province: '', phone: '', email: '', website: '',
+  date: '', type: '', is_paid: true, is_recurring: false,
+  level: 1, min_salary: '', mid_salary: '', max_salary: '',
+};
 const emptyShiftForm = {
   company_id: 1, code: '', name: '', start_time: '', end_time: '',
   break_start: '', break_end: '', break_duration_minutes: 60, work_hours: 8,
   is_paid_overtime: true, overtime_start_after_minutes: 0, is_active: true,
+};
+
+const sectionForms = {
+  companies: { code: '', name: '', legal_name: '', tax_id: '', address: '', city: '', province: '', phone: '', email: '', website: '', is_active: true },
+  branches: { company_id: 1, code: '', name: '', address: '', city: '', phone: '', email: '', is_active: true },
+  departments: { company_id: 1, code: '', name: '', parent_id: '', description: '', cost_center: '', is_active: true },
+  positions: { company_id: 1, department_id: '', code: '', name: '', level: 1, job_description: '', min_salary: '', max_salary: '', is_active: true },
+  grades: { company_id: 1, code: '', name: '', level: 1, min_salary: '', mid_salary: '', max_salary: '', allowance_percentage: 0, is_active: true },
+  shifts: emptyShiftForm,
+  holidays: { company_id: 1, name: '', date: '', type: 'National', description: '', is_paid: true, is_active: true },
 };
 
 const EXCLUDE_DETAIL = ['id', 'created_at', 'updated_at', 'deleted_at', 'password_hash', 'password'];
@@ -116,7 +141,7 @@ export default function MasterData() {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await api.get(`/${activeSection}`);
+      const res = await api.get(sectionEndpoints[activeSection]);
       if (res.data?.data) {
         setData(Array.isArray(res.data.data) ? res.data.data : [res.data.data]);
       } else {
@@ -135,15 +160,15 @@ export default function MasterData() {
     e.preventDefault();
     try {
       if (editing) {
-        await api.put(`/${activeSection}/${editing.id}`, form);
+        await api.put(`${sectionEndpoints[activeSection]}/${editing.id}`, form);
         toast.success(`${activeSectionLabel} updated successfully`);
       } else {
-        await api.post(`/${activeSection}`, form);
+        await api.post(sectionEndpoints[activeSection], form);
         toast.success(`${activeSectionLabel} created successfully`);
       }
       setModalOpen(false);
       setEditing(null);
-      setForm({ ...emptyForm });
+      setForm({ ...(sectionForms[activeSection] || emptyForm) });
       loadData();
     } catch (e) {
       toast.error(e.response?.data?.message || `Failed to save ${activeSectionLabel}`);
@@ -152,35 +177,27 @@ export default function MasterData() {
 
   const handleEdit = (item) => {
     setEditing(item);
-    if (activeSection === 'shifts') {
-      setForm({
-        company_id: item.company_id || 1,
-        code: item.code || '',
-        name: item.name || '',
-        start_time: item.start_time ? String(item.start_time).slice(0, 5) : '',
-        end_time: item.end_time ? String(item.end_time).slice(0, 5) : '',
-        break_start: item.break_start ? String(item.break_start).slice(0, 5) : '',
-        break_end: item.break_end ? String(item.break_end).slice(0, 5) : '',
-        break_duration_minutes: item.break_duration_minutes ?? 60,
-        work_hours: item.work_hours ?? 8,
-        is_paid_overtime: item.is_paid_overtime !== false,
-        overtime_start_after_minutes: item.overtime_start_after_minutes ?? 0,
-        is_active: item.is_active !== false,
-      });
-    } else {
-      setForm({
-        code: item.code || '',
-        name: item.name || '',
-        description: item.description || '',
-        is_active: item.is_active !== false,
-      });
-    }
+    const base = sectionForms[activeSection] || { ...emptyForm };
+    setForm(Object.keys(base).reduce((acc, key) => {
+      if (key === 'is_active' || key === 'is_paid' || key === 'is_paid_overtime') {
+        acc[key] = item[key] !== false;
+      } else if (key === 'company_id' || key === 'level' || key === 'allowance_percentage' || key === 'break_duration_minutes' || key === 'work_hours' || key === 'overtime_start_after_minutes') {
+        acc[key] = item[key] ?? base[key];
+      } else if (key === 'start_time' || key === 'end_time' || key === 'break_start' || key === 'break_end') {
+        acc[key] = item[key] ? String(item[key]).slice(0, 5) : '';
+      } else if (key === 'date') {
+        acc[key] = item[key] ? String(item[key]).slice(0, 10) : '';
+      } else {
+        acc[key] = item[key] ?? '';
+      }
+      return acc;
+    }, {}));
     setModalOpen(true);
   };
 
   const handleDelete = async (id) => {
     try {
-      await api.delete(`/${activeSection}/${id}`);
+      await api.delete(`${sectionEndpoints[activeSection]}/${id}`);
       toast.success(`${activeSectionLabel} deleted successfully`);
       loadData();
     } catch (e) {
@@ -195,7 +212,7 @@ export default function MasterData() {
 
   const openCreate = () => {
     setEditing(null);
-    setForm(activeSection === 'shifts' ? { ...emptyShiftForm } : { ...emptyForm });
+    setForm({ ...(sectionForms[activeSection] || emptyForm) });
     setModalOpen(true);
   };
 
@@ -362,6 +379,241 @@ export default function MasterData() {
                     Active
                   </label>
                 </div>
+              </div>
+            </>
+          ) : activeSection === 'companies' ? (
+            <>
+              <div className="form-row">
+                <div className="form-group">
+                  <label className="form-label">Code</label>
+                  <input type="text" className="form-input" value={form.code} onChange={e => setForm({...form, code: e.target.value})} required />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Company Name</label>
+                  <input type="text" className="form-input" value={form.name} onChange={e => setForm({...form, name: e.target.value})} required />
+                </div>
+              </div>
+              <div className="form-row">
+                <div className="form-group">
+                  <label className="form-label">Legal Name</label>
+                  <input type="text" className="form-input" value={form.legal_name} onChange={e => setForm({...form, legal_name: e.target.value})} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Tax ID (NPWP)</label>
+                  <input type="text" className="form-input" value={form.tax_id} onChange={e => setForm({...form, tax_id: e.target.value})} />
+                </div>
+              </div>
+              <div className="form-group">
+                <label className="form-label">Address</label>
+                <textarea className="form-input" rows="2" value={form.address} onChange={e => setForm({...form, address: e.target.value})} />
+              </div>
+              <div className="form-row">
+                <div className="form-group">
+                  <label className="form-label">City</label>
+                  <input type="text" className="form-input" value={form.city} onChange={e => setForm({...form, city: e.target.value})} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Province</label>
+                  <input type="text" className="form-input" value={form.province} onChange={e => setForm({...form, province: e.target.value})} />
+                </div>
+              </div>
+              <div className="form-row">
+                <div className="form-group">
+                  <label className="form-label">Phone</label>
+                  <input type="text" className="form-input" value={form.phone} onChange={e => setForm({...form, phone: e.target.value})} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Email</label>
+                  <input type="email" className="form-input" value={form.email} onChange={e => setForm({...form, email: e.target.value})} />
+                </div>
+              </div>
+              <div className="form-group">
+                <label className="form-label">Website</label>
+                <input type="text" className="form-input" value={form.website} onChange={e => setForm({...form, website: e.target.value})} />
+              </div>
+              <div className="form-group">
+                <label className="form-label flex items-center gap-2">
+                  <input type="checkbox" checked={form.is_active} onChange={e => setForm({...form, is_active: e.target.checked})} />
+                  Active
+                </label>
+              </div>
+            </>
+          ) : activeSection === 'branches' ? (
+            <>
+              <div className="form-row">
+                <div className="form-group">
+                  <label className="form-label">Code</label>
+                  <input type="text" className="form-input" value={form.code} onChange={e => setForm({...form, code: e.target.value})} required />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Branch Name</label>
+                  <input type="text" className="form-input" value={form.name} onChange={e => setForm({...form, name: e.target.value})} required />
+                </div>
+              </div>
+              <div className="form-group">
+                <label className="form-label">Address</label>
+                <textarea className="form-input" rows="2" value={form.address} onChange={e => setForm({...form, address: e.target.value})} />
+              </div>
+              <div className="form-row">
+                <div className="form-group">
+                  <label className="form-label">City</label>
+                  <input type="text" className="form-input" value={form.city} onChange={e => setForm({...form, city: e.target.value})} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Phone</label>
+                  <input type="text" className="form-input" value={form.phone} onChange={e => setForm({...form, phone: e.target.value})} />
+                </div>
+              </div>
+              <div className="form-group">
+                <label className="form-label">Email</label>
+                <input type="email" className="form-input" value={form.email} onChange={e => setForm({...form, email: e.target.value})} />
+              </div>
+              <div className="form-group">
+                <label className="form-label flex items-center gap-2">
+                  <input type="checkbox" checked={form.is_active} onChange={e => setForm({...form, is_active: e.target.checked})} />
+                  Active
+                </label>
+              </div>
+            </>
+          ) : activeSection === 'departments' ? (
+            <>
+              <div className="form-row">
+                <div className="form-group">
+                  <label className="form-label">Code</label>
+                  <input type="text" className="form-input" value={form.code} onChange={e => setForm({...form, code: e.target.value})} required />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Department Name</label>
+                  <input type="text" className="form-input" value={form.name} onChange={e => setForm({...form, name: e.target.value})} required />
+                </div>
+              </div>
+              <div className="form-group">
+                <label className="form-label">Description</label>
+                <textarea className="form-input" rows="2" value={form.description} onChange={e => setForm({...form, description: e.target.value})} />
+              </div>
+              <div className="form-group">
+                <label className="form-label flex items-center gap-2">
+                  <input type="checkbox" checked={form.is_active} onChange={e => setForm({...form, is_active: e.target.checked})} />
+                  Active
+                </label>
+              </div>
+            </>
+          ) : activeSection === 'positions' ? (
+            <>
+              <div className="form-row">
+                <div className="form-group">
+                  <label className="form-label">Code</label>
+                  <input type="text" className="form-input" value={form.code} onChange={e => setForm({...form, code: e.target.value})} required />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Position Title</label>
+                  <input type="text" className="form-input" value={form.name} onChange={e => setForm({...form, name: e.target.value})} required />
+                </div>
+              </div>
+              <div className="form-row">
+                <div className="form-group">
+                  <label className="form-label">Level</label>
+                  <input type="number" min="1" className="form-input" value={form.level} onChange={e => setForm({...form, level: Number(e.target.value)})} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Min Salary</label>
+                  <input type="number" className="form-input" value={form.min_salary} onChange={e => setForm({...form, min_salary: e.target.value})} />
+                </div>
+              </div>
+              <div className="form-group">
+                <label className="form-label">Max Salary</label>
+                <input type="number" className="form-input" value={form.max_salary} onChange={e => setForm({...form, max_salary: e.target.value})} />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Job Description</label>
+                <textarea className="form-input" rows="2" value={form.job_description} onChange={e => setForm({...form, job_description: e.target.value})} />
+              </div>
+              <div className="form-group">
+                <label className="form-label flex items-center gap-2">
+                  <input type="checkbox" checked={form.is_active} onChange={e => setForm({...form, is_active: e.target.checked})} />
+                  Active
+                </label>
+              </div>
+            </>
+          ) : activeSection === 'grades' ? (
+            <>
+              <div className="form-row">
+                <div className="form-group">
+                  <label className="form-label">Code</label>
+                  <input type="text" className="form-input" value={form.code} onChange={e => setForm({...form, code: e.target.value})} required />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Grade Name</label>
+                  <input type="text" className="form-input" value={form.name} onChange={e => setForm({...form, name: e.target.value})} required />
+                </div>
+              </div>
+              <div className="form-row">
+                <div className="form-group">
+                  <label className="form-label">Level</label>
+                  <input type="number" min="1" className="form-input" value={form.level} onChange={e => setForm({...form, level: Number(e.target.value)})} required />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Min Salary</label>
+                  <input type="number" className="form-input" value={form.min_salary} onChange={e => setForm({...form, min_salary: e.target.value})} required />
+                </div>
+              </div>
+              <div className="form-row">
+                <div className="form-group">
+                  <label className="form-label">Mid Salary</label>
+                  <input type="number" className="form-input" value={form.mid_salary} onChange={e => setForm({...form, mid_salary: e.target.value})} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Max Salary</label>
+                  <input type="number" className="form-input" value={form.max_salary} onChange={e => setForm({...form, max_salary: e.target.value})} required />
+                </div>
+              </div>
+              <div className="form-group">
+                <label className="form-label">Allowance (%)</label>
+                <input type="number" step="0.01" min="0" className="form-input" value={form.allowance_percentage} onChange={e => setForm({...form, allowance_percentage: Number(e.target.value)})} />
+              </div>
+              <div className="form-group">
+                <label className="form-label flex items-center gap-2">
+                  <input type="checkbox" checked={form.is_active} onChange={e => setForm({...form, is_active: e.target.checked})} />
+                  Active
+                </label>
+              </div>
+            </>
+          ) : activeSection === 'holidays' ? (
+            <>
+              <div className="form-row">
+                <div className="form-group">
+                  <label className="form-label">Holiday Name</label>
+                  <input type="text" className="form-input" value={form.name} onChange={e => setForm({...form, name: e.target.value})} required />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Date</label>
+                  <input type="date" className="form-input" value={form.date} onChange={e => setForm({...form, date: e.target.value})} required />
+                </div>
+              </div>
+              <div className="form-group">
+                <label className="form-label">Type</label>
+                <select className="form-input" value={form.type} onChange={e => setForm({...form, type: e.target.value})}>
+                  <option value="National">National</option>
+                  <option value="Company">Company</option>
+                  <option value="Religious">Religious</option>
+                  <option value="Optional">Optional</option>
+                </select>
+              </div>
+              <div className="form-group">
+                <label className="form-label">Description</label>
+                <textarea className="form-input" rows="2" value={form.description} onChange={e => setForm({...form, description: e.target.value})} />
+              </div>
+              <div className="form-group">
+                <label className="form-label flex items-center gap-2">
+                  <input type="checkbox" checked={form.is_paid} onChange={e => setForm({...form, is_paid: e.target.checked})} />
+                  Paid
+                </label>
+              </div>
+              <div className="form-group">
+                <label className="form-label flex items-center gap-2">
+                  <input type="checkbox" checked={form.is_active} onChange={e => setForm({...form, is_active: e.target.checked})} />
+                  Active
+                </label>
               </div>
             </>
           ) : (

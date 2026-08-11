@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
 import DashboardIcon from '@mui/icons-material/Dashboard';
 import PeopleIcon from '@mui/icons-material/People';
+import StorageIcon from '@mui/icons-material/Storage';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import BeachAccessIcon from '@mui/icons-material/BeachAccess';
 import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
@@ -16,6 +17,7 @@ import './BottomNav.css';
 const roleBottomNav = {
   Administrator: [
     { label: 'Dashboard', path: '/dashboard', icon: DashboardIcon },
+    { label: 'Master Data', path: '/master-data', icon: StorageIcon },
     { label: 'Core HR', path: '/core-hr', icon: PeopleIcon },
     { label: 'Approvals', path: '/approvals', icon: CheckCircleIcon },
     { label: 'Payroll', path: '/payroll', icon: AccountBalanceWalletIcon },
