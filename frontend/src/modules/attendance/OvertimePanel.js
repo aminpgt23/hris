@@ -36,7 +36,7 @@ export default function OvertimePanel() {
   const loadRequests = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await api.get('/overtime', { params: statusFilter !== 'all' ? { status: statusFilter } : {} })
+      const res = await api.get('/attendance/overtime', { params: statusFilter !== 'all' ? { status: statusFilter } : {} })
         .catch(() => ({ data: { data: [] } }));
       setRequests(res.data?.data || []);
     } catch { /* ignore */ }
@@ -49,7 +49,7 @@ export default function OvertimePanel() {
     e.preventDefault();
     setSubmitting(true);
     try {
-      await api.post('/overtime', form);
+      await api.post('/attendance/overtime', form);
       toast.success('Overtime request submitted');
       setFormOpen(false);
       setForm({ ...emptyForm });
@@ -65,7 +65,7 @@ export default function OvertimePanel() {
     e.preventDefault();
     setSubmitting(true);
     try {
-      await api.put(`/overtime/${approveTarget.id}/approve`, { approved_hours: Number(approveHours) });
+      await api.put(`/attendance/overtime/${approveTarget.id}/approve`, { approved_hours: Number(approveHours) });
       toast.success('Overtime approved');
       setApproveTarget(null);
       setApproveHours('');
@@ -81,7 +81,7 @@ export default function OvertimePanel() {
     e.preventDefault();
     setSubmitting(true);
     try {
-      await api.put(`/overtime/${rejectTarget.id}/reject`, { rejection_reason: rejectReason });
+      await api.put(`/attendance/overtime/${rejectTarget.id}/reject`, { rejection_reason: rejectReason });
       toast.success('Overtime rejected');
       setRejectTarget(null);
       setRejectReason('');
