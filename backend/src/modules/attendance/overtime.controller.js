@@ -29,10 +29,28 @@ exports.request = async (req, res, next) => {
 exports.approve = async (req, res, next) => {
   try {
     const { approved_hours } = req.body;
+    const hours = Number(approved_hours);
+    if (!approved_hours || Number.isNaN(hours) || hours <= 0) {
+      return res.status(400).json({ success: false, message: 'approved_hours is required and must be greater than 0' });
+    }
+
+    // Manager can only approve requests from their own team
+    if (req.user.roleName === 'Manager') {
+      const [teamCheck] = await db.execute(
+        `SELECT o.id FROM overtime_requests o
+         JOIN employees e ON o.employee_id = e.id
+         WHERE o.id = ? AND e.supervisor_id = ? AND o.status = 'Pending'`,
+        [req.params.id, req.user.employeeId]
+      );
+      if (teamCheck.length === 0) {
+        return res.status(403).json({ success: false, message: 'Not authorized: overtime request is not from your team' });
+      }
+    }
+
     const [result] = await db.execute(
       `UPDATE overtime_requests SET status='Approved', approved_hours=?, approved_by=?, approved_at=NOW()
        WHERE id=? AND status='Pending'`,
-      [approved_hours || null, req.user.id, req.params.id]
+      [hours, req.user.id, req.params.id]
     );
     if (result.affectedRows === 0) return res.status(404).json({ success: false, message: 'Request not found or already processed' });
     res.json({ success: true, message: 'Overtime approved' });
@@ -42,6 +60,20 @@ exports.approve = async (req, res, next) => {
 exports.reject = async (req, res, next) => {
   try {
     const { rejection_reason } = req.body;
+
+    // Manager can only reject requests from their own team
+    if (req.user.roleName === 'Manager') {
+      const [teamCheck] = await db.execute(
+        `SELECT o.id FROM overtime_requests o
+         JOIN employees e ON o.employee_id = e.id
+         WHERE o.id = ? AND e.supervisor_id = ? AND o.status = 'Pending'`,
+        [req.params.id, req.user.employeeId]
+      );
+      if (teamCheck.length === 0) {
+        return res.status(403).json({ success: false, message: 'Not authorized: overtime request is not from your team' });
+      }
+    }
+
     const [result] = await db.execute(
       `UPDATE overtime_requests SET status='Rejected', approved_by=?, approved_at=NOW(), rejection_reason=?
        WHERE id=? AND status='Pending'`,
@@ -63,16 +95,21 @@ exports.getAll = async (req, res, next) => {
     if (date_from) { where += ' AND o.date >= ?'; params.push(date_from); }
     if (date_to) { where += ' AND o.date <= ?'; params.push(date_to); }
 
-    // Employee sees only own
+    // Employee sees only own; Manager sees own team + own requests
     if (req.user.roleName === 'Employee') {
       where += ' AND o.employee_id = ?';
       params.push(req.user.employeeId);
+    } else if (req.user.roleName === 'Manager') {
+      where += ' AND (e.supervisor_id = ? OR o.employee_id = ?)';
+      params.push(req.user.employeeId, req.user.employeeId);
     }
 
     const [rows] = await db.execute(
-      `SELECT o.*, CONCAT(e.first_name, ' ', e.last_name) as employee_name, e.employee_number
+      `SELECT o.*, CONCAT(e.first_name, ' ', e.last_name) as employee_name, e.employee_number,
+              d.name as department_name
        FROM overtime_requests o
        JOIN employees e ON o.employee_id = e.id
+       LEFT JOIN departments d ON e.department_id = d.id
        ${where}
        ORDER BY o.created_at DESC`, params
     );

@@ -9,6 +9,7 @@ import RefreshIcon from '@mui/icons-material/Refresh';
 import FaceIcon from '@mui/icons-material/Face';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
 import FaceCaptureModal from './FaceCaptureModal';
+import OvertimePanel from './OvertimePanel';
 import './Attendance.css';
 
 const statusBadge = {
@@ -62,6 +63,7 @@ export default function Attendance() {
   const [action, setAction] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [photoViewer, setPhotoViewer] = useState(null);
+  const [view, setView] = useState('records');
 
   const loadRecords = useCallback(async () => {
     setLoading(true);
@@ -173,6 +175,17 @@ export default function Attendance() {
         </div>
       </div>
 
+      <div className="attendance-tabs" style={{ marginBottom: 'var(--space-4)' }}>
+        {['records', 'overtime'].map(f => (
+          <button key={f} className={`att-tab ${view === f ? 'active' : ''}`}
+            onClick={() => setView(f)}>{f.charAt(0).toUpperCase() + f.slice(1)}</button>
+        ))}
+      </div>
+
+      {view === 'overtime' ? (
+        <OvertimePanel />
+      ) : (
+      <>
       <div className="stats-grid">
         <Card className="att-stat"><div className="att-stat-value" style={{ color: 'var(--color-success)' }}>{stats.present}</div><div className="att-stat-label">Present</div></Card>
         <Card className="att-stat"><div className="att-stat-value" style={{ color: 'var(--color-danger)' }}>{stats.absent}</div><div className="att-stat-label">Absent</div></Card>
@@ -247,6 +260,8 @@ export default function Attendance() {
           </div>
         )}
       </Modal>
+      </>
+      )}
     </div>
   );
 }

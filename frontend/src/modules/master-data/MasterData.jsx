@@ -60,6 +60,8 @@ const sectionColumns = {
     { key: 'name', label: 'Shift Name' },
     { key: 'start_time', label: 'Start', width: '90px' },
     { key: 'end_time', label: 'End', width: '90px' },
+    { key: 'work_hours', label: 'Work Hours', width: '100px', render: (v) => v ? `${Number(v).toFixed(1)}h` : '-' },
+    { key: 'is_paid_overtime', label: 'Paid OT', width: '80px', render: (v) => v ? 'Yes' : 'No' },
     { key: 'is_active', label: 'Status', width: '90px', render: (v) => <Badge variant={v ? 'success' : 'muted'}>{v ? 'Active' : 'Inactive'}</Badge> },
   ],
   holidays: [
@@ -71,6 +73,11 @@ const sectionColumns = {
 };
 
 const emptyForm = { code: '', name: '', description: '', is_active: true };
+const emptyShiftForm = {
+  company_id: 1, code: '', name: '', start_time: '', end_time: '',
+  break_start: '', break_end: '', break_duration_minutes: 60, work_hours: 8,
+  is_paid_overtime: true, overtime_start_after_minutes: 0, is_active: true,
+};
 
 const EXCLUDE_DETAIL = ['id', 'created_at', 'updated_at', 'deleted_at', 'password_hash', 'password'];
 
@@ -145,12 +152,29 @@ export default function MasterData() {
 
   const handleEdit = (item) => {
     setEditing(item);
-    setForm({
-      code: item.code || '',
-      name: item.name || '',
-      description: item.description || '',
-      is_active: item.is_active !== false,
-    });
+    if (activeSection === 'shifts') {
+      setForm({
+        company_id: item.company_id || 1,
+        code: item.code || '',
+        name: item.name || '',
+        start_time: item.start_time ? String(item.start_time).slice(0, 5) : '',
+        end_time: item.end_time ? String(item.end_time).slice(0, 5) : '',
+        break_start: item.break_start ? String(item.break_start).slice(0, 5) : '',
+        break_end: item.break_end ? String(item.break_end).slice(0, 5) : '',
+        break_duration_minutes: item.break_duration_minutes ?? 60,
+        work_hours: item.work_hours ?? 8,
+        is_paid_overtime: item.is_paid_overtime !== false,
+        overtime_start_after_minutes: item.overtime_start_after_minutes ?? 0,
+        is_active: item.is_active !== false,
+      });
+    } else {
+      setForm({
+        code: item.code || '',
+        name: item.name || '',
+        description: item.description || '',
+        is_active: item.is_active !== false,
+      });
+    }
     setModalOpen(true);
   };
 
@@ -171,7 +195,7 @@ export default function MasterData() {
 
   const openCreate = () => {
     setEditing(null);
-    setForm({ ...emptyForm });
+    setForm(activeSection === 'shifts' ? { ...emptyShiftForm } : { ...emptyForm });
     setModalOpen(true);
   };
 
@@ -279,24 +303,89 @@ export default function MasterData() {
         title={editing ? `Edit ${activeSectionLabel}` : `Add ${activeSectionLabel}`}
       >
         <form onSubmit={handleSubmit}>
-          <div className="form-group">
-            <label className="form-label">Code</label>
-            <input type="text" className="form-input" value={form.code} onChange={e => setForm({...form, code: e.target.value})} required />
-          </div>
-          <div className="form-group">
-            <label className="form-label">Name</label>
-            <input type="text" className="form-input" value={form.name} onChange={e => setForm({...form, name: e.target.value})} required />
-          </div>
-          <div className="form-group">
-            <label className="form-label">Description</label>
-            <textarea className="form-input" rows="3" value={form.description} onChange={e => setForm({...form, description: e.target.value})} />
-          </div>
-          <div className="form-group">
-            <label className="form-label flex items-center gap-2">
-              <input type="checkbox" checked={form.is_active} onChange={e => setForm({...form, is_active: e.target.checked})} />
-              Active
-            </label>
-          </div>
+          {activeSection === 'shifts' ? (
+            <>
+              <div className="form-row">
+                <div className="form-group">
+                  <label className="form-label">Code</label>
+                  <input type="text" className="form-input" value={form.code} onChange={e => setForm({...form, code: e.target.value})} required />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Shift Name</label>
+                  <input type="text" className="form-input" value={form.name} onChange={e => setForm({...form, name: e.target.value})} required />
+                </div>
+              </div>
+              <div className="form-row">
+                <div className="form-group">
+                  <label className="form-label">Start Time</label>
+                  <input type="time" className="form-input" value={form.start_time} onChange={e => setForm({...form, start_time: e.target.value})} required />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">End Time</label>
+                  <input type="time" className="form-input" value={form.end_time} onChange={e => setForm({...form, end_time: e.target.value})} required />
+                </div>
+              </div>
+              <div className="form-row">
+                <div className="form-group">
+                  <label className="form-label">Work Hours</label>
+                  <input type="number" step="0.5" min="0.5" className="form-input" value={form.work_hours} onChange={e => setForm({...form, work_hours: Number(e.target.value)})} required />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Break (minutes)</label>
+                  <input type="number" min="0" className="form-input" value={form.break_duration_minutes} onChange={e => setForm({...form, break_duration_minutes: Number(e.target.value)})} />
+                </div>
+              </div>
+              <div className="form-row">
+                <div className="form-group">
+                  <label className="form-label">Break Start</label>
+                  <input type="time" className="form-input" value={form.break_start} onChange={e => setForm({...form, break_start: e.target.value})} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Break End</label>
+                  <input type="time" className="form-input" value={form.break_end} onChange={e => setForm({...form, break_end: e.target.value})} />
+                </div>
+              </div>
+              <div className="form-group">
+                <label className="form-label">Overtime starts after (minutes)</label>
+                <input type="number" min="0" className="form-input" value={form.overtime_start_after_minutes} onChange={e => setForm({...form, overtime_start_after_minutes: Number(e.target.value)})} />
+              </div>
+              <div className="form-row">
+                <div className="form-group">
+                  <label className="form-label flex items-center gap-2">
+                    <input type="checkbox" checked={form.is_paid_overtime} onChange={e => setForm({...form, is_paid_overtime: e.target.checked})} />
+                    Paid Overtime
+                  </label>
+                </div>
+                <div className="form-group">
+                  <label className="form-label flex items-center gap-2">
+                    <input type="checkbox" checked={form.is_active} onChange={e => setForm({...form, is_active: e.target.checked})} />
+                    Active
+                  </label>
+                </div>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="form-group">
+                <label className="form-label">Code</label>
+                <input type="text" className="form-input" value={form.code} onChange={e => setForm({...form, code: e.target.value})} required />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Name</label>
+                <input type="text" className="form-input" value={form.name} onChange={e => setForm({...form, name: e.target.value})} required />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Description</label>
+                <textarea className="form-input" rows="3" value={form.description} onChange={e => setForm({...form, description: e.target.value})} />
+              </div>
+              <div className="form-group">
+                <label className="form-label flex items-center gap-2">
+                  <input type="checkbox" checked={form.is_active} onChange={e => setForm({...form, is_active: e.target.checked})} />
+                  Active
+                </label>
+              </div>
+            </>
+          )}
           <div className="modal-actions">
             <Button variant="ghost" onClick={() => setModalOpen(false)}>Cancel</Button>
             <Button variant="primary" type="submit">{editing ? 'Update' : 'Create'}</Button>
