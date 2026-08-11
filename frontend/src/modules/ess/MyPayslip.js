@@ -7,7 +7,9 @@ import './ESS.css';
 
 const formatCurrency = (val) => {
   if (val === null || val === undefined) return '-';
-  return 'Rp ' + Number(val).toLocaleString('id-ID');
+  const n = Number(val);
+  if (Number.isNaN(n)) return '-';
+  return 'Rp ' + n.toLocaleString('id-ID');
 };
 
 const paymentBadge = {
@@ -70,7 +72,7 @@ export default function MyPayslip() {
                 <tr key={p.id}>
                   <td>{p.period_name || '-'}</td>
                   <td>{formatCurrency(p.gross_salary)}</td>
-                  <td>-{formatCurrency(p.deductions)}</td>
+                  <td>-{formatCurrency(p.deductions_total ?? p.deductions)}</td>
                   <td>{formatCurrency(p.net_salary)}</td>
                   <td>{paymentBadge[p.payment_status] || p.payment_status || '-'}</td>
                   <td>
@@ -91,15 +93,16 @@ export default function MyPayslip() {
             <div className="ps-row"><span>Working Days</span><span>{detail.working_days ?? '-'}</span></div>
             <div className="ps-row"><span>Present Days</span><span>{detail.present_days ?? '-'}</span></div>
             <div className="ps-row"><span>Overtime Hours</span><span>{detail.overtime_hours ?? '-'}</span></div>
-            <div className="ps-row"><span>Basic Salary</span><span>{formatCurrency(detail.basic_salary)}</span></div>
-            <div className="ps-row"><span>Allowances</span><span>{formatCurrency(detail.total_allowances)}</span></div>
-            <div className="ps-row"><span>Overtime Pay</span><span>{formatCurrency(detail.overtime_pay)}</span></div>
+            <div className="ps-section-label">Earnings</div>
+            {Object.entries(detail.earnings || {}).map(([k, v]) => (
+              <div className="ps-row" key={k}><span>{k}</span><span>{formatCurrency(v)}</span></div>
+            ))}
             <div className="ps-row ps-total"><span>Gross Salary</span><span>{formatCurrency(detail.gross_salary)}</span></div>
-            <div className="ps-row"><span>BPJS Health</span><span>-{formatCurrency(detail.bpjs_health_employee)}</span></div>
-            <div className="ps-row"><span>BPJS Employment</span><span>-{formatCurrency(detail.bpjs_employment_employee)}</span></div>
-            <div className="ps-row"><span>Pension</span><span>-{formatCurrency(detail.pension_employee)}</span></div>
-            <div className="ps-row"><span>PPh21</span><span>-{formatCurrency(detail.pph21_employee)}</span></div>
-            <div className="ps-row"><span>Total Deductions</span><span>-{formatCurrency(detail.deductions)}</span></div>
+            <div className="ps-section-label">Deductions</div>
+            {Object.entries(detail.deductions || {}).map(([k, v]) => (
+              <div className="ps-row" key={k}><span>{k}</span><span>-{formatCurrency(v)}</span></div>
+            ))}
+            <div className="ps-row"><span>Total Deductions</span><span>-{formatCurrency(detail.deductions_total ?? detail.deductions)}</span></div>
             <div className="ps-row ps-net"><span>Net Salary</span><span>{formatCurrency(detail.net_salary)}</span></div>
             <div className="ps-row"><span>Payment Method</span><span>{detail.payment_method || '-'}</span></div>
             <div className="ps-row"><span>Payment Status</span><span>{paymentBadge[detail.payment_status] || detail.payment_status || '-'}</span></div>

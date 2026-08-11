@@ -45,13 +45,36 @@ router.put('/profile', async (req, res, next) => {
 router.get('/payslips', async (req, res, next) => {
   try {
     const [rows] = await db.execute(
-      `SELECT pt.*, pp.name as period_name
+      `SELECT pt.*, pp.name as period_name, pp.status as period_status
        FROM payroll_transactions pt
        JOIN payroll_periods pp ON pt.payroll_period_id = pp.id
-       WHERE pt.employee_id = ? AND pt.payslip_generated = TRUE
+       WHERE pt.employee_id = ?
+         AND (pt.payslip_generated = TRUE OR pp.status IN ('Approved', 'Paid', 'Closed'))
        ORDER BY pp.start_date DESC`, [req.user.employeeId]
     );
-    res.json({ success: true, data: rows });
+
+    const data = rows.map(r => {
+      let earnings = {};
+      let deductions = {};
+      try { earnings = typeof r.earnings === 'string' ? JSON.parse(r.earnings) : (r.earnings || {}); } catch { earnings = {}; }
+      try { deductions = typeof r.deductions === 'string' ? JSON.parse(r.deductions) : (r.deductions || {}); } catch { deductions = {}; }
+
+      const basicSalary = Number(r.basic_salary) || 0;
+      const earningsTotal = Object.values(earnings).reduce((s, v) => s + (Number(v) || 0), 0);
+      const deductionsTotal = Object.values(deductions).reduce((s, v) => s + (Number(v) || 0), 0);
+
+      return {
+        ...r,
+        earnings,
+        deductions,
+        basic_salary: basicSalary,
+        total_allowances: Math.max(earningsTotal - basicSalary, 0),
+        overtime_pay: Number(earnings.Overtime) || 0,
+        deductions_total: deductionsTotal,
+      };
+    });
+
+    res.json({ success: true, data });
   } catch (error) { next(error); }
 });
 

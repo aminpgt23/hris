@@ -451,6 +451,34 @@ router.get('/periods/:id/transactions', authorize('Administrator', 'HR Staff', '
   } catch (error) { next(error); }
 });
 
+router.post('/periods/:id/payslips', authorize('Administrator', 'HR Staff', 'Finance'), async (req, res, next) => {
+  try {
+    const [periods] = await db.execute(
+      "SELECT id, status FROM payroll_periods WHERE id = ?", [req.params.id]
+    );
+    if (periods.length === 0) {
+      return res.status(404).json({ success: false, message: 'Payroll period not found' });
+    }
+    const period = periods[0];
+    if (!['Approved', 'Paid', 'Closed'].includes(period.status)) {
+      return res.status(400).json({
+        success: false,
+        message: `Payslips can only be generated for Approved/Paid/Closed periods (current: ${period.status})`
+      });
+    }
+    const [result] = await db.execute(
+      `UPDATE payroll_transactions SET payslip_generated = TRUE, payslip_url = NULL
+       WHERE payroll_period_id = ? AND payslip_generated = FALSE`,
+      [req.params.id]
+    );
+    res.json({
+      success: true,
+      message: `Payslips generated for ${result.affectedRows} transaction(s)`,
+      data: { generated: result.affectedRows }
+    });
+  } catch (error) { next(error); }
+});
+
 // ===== Payroll Employees (for assignment dropdown) =====
 
 router.get('/employees', authorize('Administrator', 'HR Staff', 'Finance'), async (req, res, next) => {
